@@ -1,0 +1,217 @@
+You are a senior backend architect.
+
+Build a production-ready, scalable backend system for a real-time hotel booking mobile application.
+
+Architecture Requirements (MANDATORY):
+
+- Microservices architecture
+- Backend for Frontend (BFF) pattern
+- Apollo GraphQL Gateway using Federation
+- Event-driven communication
+- WebSockets + GraphQL Subscriptions
+- Redis Pub/Sub
+- Dockerized services
+- Production-grade folder structure
+- Clean, maintainable TypeScript code
+- Use NestJS (preferred) OR Node.js with TypeScript
+
+========================================
+SYSTEM ARCHITECTURE
+========================================
+
+Flow:
+
+Mobile App → BFF → GraphQL Gateway → Microservices
+
+Each microservice must:
+- Be independent
+- Have its own database schema
+- Expose GraphQL subgraph
+- Communicate via events (Redis Pub/Sub)
+- Be dockerized
+
+========================================
+MICROSERVICES TO IMPLEMENT
+========================================
+
+1️⃣ Auth Service
+- JWT access + refresh tokens
+- OTP login (email simulation)
+- Role-based access control
+- Google login placeholder structure
+- Token rotation
+- Rate limiting
+- Password hashing (bcrypt)
+
+2️⃣ User Service
+- User profile CRUD
+- Saved hotels
+- Booking history
+- Wallet balance logic
+- Address management
+
+3️⃣ Hotel Service
+- Hotel CRUD
+- Room management
+- Amenities
+- Ratings
+- Availability logic
+- Image URLs (Cloudinary placeholder)
+- Geo-location (lat/lng fields)
+- Nearby search query support
+
+4️⃣ Booking Service
+- Create booking
+- Modify booking
+- Cancel booking
+- Booking status lifecycle
+- Prevent double booking logic
+- Emit events on booking creation
+
+5️⃣ Payment Service
+- Razorpay test mode integration
+- Create order
+- Capture payment
+- Verify webhook signature
+- Refund endpoint
+- Transaction logging
+- Handle failure / timeout cases
+
+6️⃣ Review Service
+- Add review
+- Calculate average rating
+- Aggregate hotel rating
+
+7️⃣ Notification Service
+- Firebase Cloud Messaging integration structure
+- Send booking confirmation
+- Send payment confirmation
+- Real-time notification via WebSocket
+
+8️⃣ Map Service
+- Hotel distance calculation
+- Nearby hotels query
+- Haversine formula implementation
+
+9️⃣ Live Streaming Service
+- WebRTC or LiveKit integration structure
+- Create live session
+- Join live session
+- Real-time chat using WebSockets
+
+========================================
+GRAPHQL GATEWAY
+========================================
+
+- Use Apollo Federation
+- Each service must expose a subgraph
+- Single endpoint: /graphql
+- Schema stitching via federation
+- Query batching enabled
+- Support GraphQL subscriptions
+
+========================================
+BFF LAYER
+========================================
+
+- Transform responses for mobile
+- Aggregate multiple queries
+- Reduce over-fetching
+- Handle authentication forwarding
+- Device-specific optimizations
+
+========================================
+DATABASE REQUIREMENTS
+========================================
+
+Use:
+
+- PostgreSQL (TypeORM or Prisma)
+- Redis (caching + pub/sub)
+- S3/Cloudinary placeholder config
+
+Each microservice must have:
+- Its own database schema
+- Proper relational modeling
+- Indexed fields
+- Migration setup
+
+========================================
+REAL-TIME REQUIREMENTS
+========================================
+
+Implement:
+
+- GraphQL Subscriptions
+- Redis Pub/Sub for cross-service events
+- WebSocket server
+- Real-time booking status updates
+- Live price update mechanism
+- Live streaming chat
+
+========================================
+SECURITY REQUIREMENTS
+========================================
+
+- JWT validation middleware
+- Refresh token rotation
+- Rate limiting
+- Input validation (class-validator)
+- Helmet security
+- CORS configuration
+- HTTPS-ready config
+- Environment variables (.env)
+
+========================================
+FOLDER STRUCTURE
+========================================
+
+Generate full monorepo structure like:
+
+/apps
+   /auth-service
+   /user-service
+   /hotel-service
+   /booking-service
+   /payment-service
+   /review-service
+   /notification-service
+   /map-service
+   /live-service
+   /graphql-gateway
+   /bff
+
+/libs
+   /common
+   /config
+   /database
+   /events
+
+Include:
+
+- Dockerfile for each service
+- docker-compose.yml
+- .env.example
+- Prisma/TypeORM schemas
+- Example GraphQL queries and mutations
+- Sample subscription example
+- Webhook example for Razorpay
+
+========================================
+DELIVERABLE
+========================================
+
+Generate:
+
+1. Complete backend code
+2. Database models
+3. GraphQL schemas
+4. Docker configuration
+5. Setup instructions
+6. Run instructions
+7. Example curl / Postman test examples
+
+Do NOT generate placeholder pseudo code.
+Generate real working TypeScript code.
+Use best practices.
+Ensure scalability and modularity.
