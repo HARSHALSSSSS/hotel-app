@@ -1,0 +1,324 @@
+Build a Production-Ready Real-Time Hotel Booking Mobile App (iOS + Android) Using Microservices + GraphQL + BFF Pattern
+react native  
+🎯 Objective
+
+Build a fully functional, real-time hotel booking mobile application using the exact UI design from:
+
+https://www.behance.net/gallery/180672251/Hotel-Booking-App-Figma-UI-Kit-UIUX-Figma-UI-Kit
+
+The UI must match pixel-to-pixel exactly as per Figma design (colors, spacing, typography, components, transitions, icons, animations).
+
+This should NOT be a UI prototype.
+This must be a fully working, production-grade application with real backend systems.
+
+🏗 ARCHITECTURE REQUIREMENTS (MANDATORY)
+1️⃣ Architecture Style
+
+Use:
+
+Microservices architecture
+
+Backend For Frontend (BFF) Pattern
+
+GraphQL Gateway (single API entry point)
+
+Event-driven communication between services
+
+Dockerized services
+
+Production-ready folder structure
+
+2️⃣ Tech Stack
+📱 Mobile App
+
+Flutter (preferred) OR React Native
+
+Clean Architecture pattern
+
+State management: Bloc (if Flutter) / Redux Toolkit (if RN)
+
+Production-ready folder structure
+
+🌐 Backend
+
+Use Node.js (TypeScript) OR NestJS for microservices.
+
+Each service must be independent.
+
+🧩 Required Microservices
+
+Create separate services:
+
+1️⃣ Auth Service
+
+JWT Authentication
+
+OTP login
+
+Social login (Google/Apple optional)
+
+Role management
+
+2️⃣ User Service
+
+User profile
+
+Saved hotels
+
+Booking history
+
+Wallet
+
+3️⃣ Hotel Service
+
+Hotel CRUD
+
+Room details
+
+Images
+
+Amenities
+
+Ratings
+
+Availability logic
+
+4️⃣ Booking Service
+
+Create booking
+
+Modify booking
+
+Cancel booking
+
+Booking status tracking
+
+5️⃣ Payment Service
+
+Razorpay integration (real test mode)
+
+Payment verification webhook
+
+Refund handling
+
+6️⃣ Map Service
+
+Google Maps SDK integration
+
+Real hotel locations
+
+Distance calculation
+
+Nearby search
+
+Marker clustering
+
+7️⃣ Review Service
+
+Add review
+
+Rating calculation
+
+Aggregation logic
+
+8️⃣ Notification Service
+
+Firebase Push Notifications
+
+Booking confirmation
+
+Payment confirmation
+
+Real-time alerts
+
+9️⃣ Live Streaming Service
+
+Integrate:
+
+Agora OR LiveKit OR WebRTC
+
+Hotels can live stream room previews
+
+Users can join live session
+
+Real-time streaming with chat
+
+🔗 API LAYER
+Use GraphQL Gateway
+
+All microservices connect to one GraphQL Gateway
+
+Use Apollo Federation
+
+Single endpoint for mobile app
+
+Example:
+
+POST /graphql
+
+
+GraphQL should:
+
+Combine data from multiple services
+
+Handle batching
+
+Resolve nested queries
+
+🧠 BFF Pattern
+
+Create a BFF layer specifically for mobile.
+
+Responsibilities:
+
+Transform GraphQL responses
+
+Reduce over-fetching
+
+Aggregate service calls
+
+Handle device-specific optimizations
+
+Flow:
+
+Mobile App → BFF → GraphQL Gateway → Microservices
+
+⚡ Real-Time Requirements
+
+Use:
+
+WebSockets
+
+GraphQL subscriptions
+
+Redis Pub/Sub
+
+Real-time features:
+
+Live room availability
+
+Booking confirmation updates
+
+Live price changes
+
+Live streaming updates
+
+Real-time chat in live stream
+
+🗄 DATABASE DESIGN
+
+Use:
+
+PostgreSQL (for structured data)
+
+Redis (caching + sessions)
+
+S3 or Cloudinary (image storage)
+
+Each microservice must have its own database schema.
+
+💳 Payment Requirements
+
+Integrate Razorpay:
+
+Create order
+
+Capture payment
+
+Webhook verification
+
+Refund endpoint
+
+Transaction logs
+
+Must handle:
+
+Payment failure
+
+Payment success
+
+Timeout
+
+Retry
+
+🗺 Map Requirements
+
+Google Maps SDK
+
+Show hotels as markers
+
+Dynamic loading
+
+Nearby search filter
+
+Custom map styling
+
+Route navigation
+
+📱 Screens Required (From Figma)
+
+Implement ALL screens:
+
+Splash screen
+
+Onboarding
+
+Login / Signup
+
+Home
+
+Search
+
+Filters
+
+Hotel details
+
+Room selection
+
+Booking confirmation
+
+Payment screen
+
+Profile
+
+Saved hotels
+
+Reviews
+
+Live stream view
+
+Map view
+
+Notifications
+
+Exact UI replication required.
+
+🎨 UI Requirements
+
+Glassmorphism where used
+
+Smooth animations
+
+Hero transitions
+
+Micro interactions
+
+Lottie animations
+
+Skeleton loaders
+
+Shimmer loading
+
+🔐 Security Requirements
+
+JWT with refresh tokens
+
+Rate limiting
+
+Input validation
+
+API throttling
+
+Payment signature verification
+
+HTTPS enforced
