@@ -1,0 +1,157 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApiUrl } from "./query-client";
+import { fetch } from "expo/fetch";
+
+const TOKEN_KEY = "@stayease_access_token";
+const REFRESH_KEY = "@stayease_refresh_token";
+const USER_KEY = "@stayease_user";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+  name: string;
+  phone: string | null;
+  avatar: string | null;
+  role: string;
+  walletBalance: number;
+  isVerified: boolean;
+}
+
+let cachedToken: string | null = null;
+
+export async function getToken(): Promise<string | null> {
+  if (cachedToken) return cachedToken;
+  cachedToken = await AsyncStorage.getItem(TOKEN_KEY);
+  return cachedToken;
+}
+
+export async function setTokens(accessToken: string, refreshToken: string): Promise<void> {
+  cachedToken = accessToken;
+  await AsyncStorage.multiSet([
+    [TOKEN_KEY, accessToken],
+    [REFRESH_KEY, refreshToken],
+  ]);
+}
+
+export async function clearAuth(): Promise<void> {
+  cachedToken = null;
+  await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_KEY, USER_KEY]);
+}
+
+export async function getStoredUser(): Promise<AuthUser | null> {
+  const data = await AsyncStorage.getItem(USER_KEY);
+  return data ? JSON.parse(data) : null;
+}
+
+export async function storeUser(user: AuthUser): Promise<void> {
+  await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const baseUrl = getApiUrl();
+  const url = new URL(path, baseUrl).toString();
+  let token = await getToken();
+
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  if (options.body && typeof options.body === "string") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  let res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401 && token) {
+    const refreshed = await refreshTokens();
+    if (refreshed) {
+      headers["Authorization"] = `Bearer ${cachedToken}`;
+      res = await fetch(url, { ...options, headers });
+    }
+  }
+
+  return res;
+}
+
+async function refreshTokens(): Promise<boolean> {
+  try {
+    const refreshToken = await AsyncStorage.getItem(REFRESH_KEY);
+    if (!refreshToken) return false;
+
+    const baseUrl = getApiUrl();
+    const res = await fetch(new URL("/api/auth/refresh", baseUrl).toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    await setTokens(data.accessToken, data.refreshToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function login(email: string, password: string): Promise<{ user: AuthUser }> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/login", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Login failed");
+  }
+
+  const data = await res.json();
+  await setTokens(data.accessToken, data.refreshToken);
+  await storeUser(data.user);
+  return { user: data.user };
+}
+
+export async function register(email: string, username: string, password: string, name: string): Promise<{ user: AuthUser }> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/register", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, username, password, name }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Registration failed");
+  }
+
+  const data = await res.json();
+  await setTokens(data.accessToken, data.refreshToken);
+  await storeUser(data.user);
+  return { user: data.user };
+}
+
+export async function autoLogin(): Promise<AuthUser | null> {
+  const token = await getToken();
+  if (!token) return null;
+
+  try {
+    const res = await authFetch("/api/auth/profile");
+    if (!res.ok) {
+      await clearAuth();
+      return null;
+    }
+    const user = await res.json();
+    await storeUser(user);
+    return user;
+  } catch {
+    return await getStoredUser();
+  }
+}
