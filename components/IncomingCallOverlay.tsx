@@ -99,6 +99,7 @@ export default function IncomingCallOverlay() {
         hotelName: hotelName || "Hotel",
         remoteName: fromName || "Guest",
         isIncoming: "1",
+        voiceOnly: "1",
       },
     });
   };

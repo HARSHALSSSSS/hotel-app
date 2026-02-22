@@ -136,9 +136,9 @@ export default function HomeScreen() {
                 </View>
               ) : (
                 <View style={styles.emptyState}>
-                  <Ionicons name="business-outline" size={rs(48)} color={Colors.textTertiary} />
-                  <Text style={styles.emptyTitle}>No hotels here</Text>
-                  <Text style={styles.emptySub}>Pull down to refresh</Text>
+                  <Ionicons name="cloud-offline-outline" size={rs(48)} color={Colors.textTertiary} />
+                  <Text style={styles.emptyTitle}>Unable to load hotels</Text>
+                  <Text style={styles.emptySub}>Connection may be slow. Pull down to try again</Text>
                 </View>
               )
             ) : (

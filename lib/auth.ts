@@ -4,11 +4,12 @@ import { fetch } from "expo/fetch";
 
 const TOKEN_KEY = "@stayease_access_token";
 const REQUEST_TIMEOUT_MS = 20_000;
+const HOTELS_FETCH_TIMEOUT_MS = 40_000;
 
 /** Fetch with timeout to prevent infinite loading when API is unreachable */
-async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(timeoutId);
@@ -67,7 +68,7 @@ export async function storeUser(user: AuthUser): Promise<void> {
   await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
+export async function authFetch(path: string, options: RequestInit = {}, timeoutMs?: number): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(path, baseUrl).toString();
   let token = await getToken();
@@ -84,13 +85,14 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
     headers["Content-Type"] = "application/json";
   }
 
-  let res = await fetchWithTimeout(url, { ...options, headers });
+  const timeout = timeoutMs ?? REQUEST_TIMEOUT_MS;
+  let res = await fetchWithTimeout(url, { ...options, headers }, timeout);
 
   if (res.status === 401 && token) {
     const refreshed = await refreshTokens();
     if (refreshed) {
       headers["Authorization"] = `Bearer ${cachedToken}`;
-      res = await fetchWithTimeout(url, { ...options, headers });
+      res = await fetchWithTimeout(url, { ...options, headers }, timeout);
     }
   }
 

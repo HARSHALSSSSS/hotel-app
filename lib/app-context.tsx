@@ -278,7 +278,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const fetchHotels = async (): Promise<HotelListItem[]> => {
         try {
-          const res = await authFetch("/api/hotels");
+          const res = await authFetch("/api/hotels", {}, 40000);
           const data = res.ok ? await res.json() : [];
           const list = Array.isArray(data) ? data : [];
           return normalizeHotels(list);
@@ -287,8 +287,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       };
 
+      (async () => {
+        try {
+          const { getApiUrl } = await import("@/lib/query-client");
+          const controller = new AbortController();
+          const t = setTimeout(() => controller.abort(), 12000);
+          await fetch(new URL("/api/hotels", getApiUrl()).toString(), { method: "GET", signal: controller.signal });
+          clearTimeout(t);
+        } catch {}
+      })();
+      await new Promise((r) => setTimeout(r, 5000));
+
       let normalized = await fetchHotels();
-      const retryDelays = [1500, 3000, 5000];
+      const retryDelays = [5000, 10000, 15000, 20000, 25000];
       for (let i = 0; i < retryDelays.length && normalized.length === 0; i++) {
         await new Promise((r) => setTimeout(r, retryDelays[i]));
         normalized = await fetchHotels();
@@ -430,21 +441,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshHotels = useCallback(async () => {
-    try {
-      const res = await authFetch("/api/hotels");
-      const data = res.ok ? await res.json() : [];
-      const hotelsList = Array.isArray(data) ? data : [];
-      const normalized = normalizeHotels(hotelsList);
-      setHotels(normalized);
-      if (normalized.length > 0) {
-        AsyncStorage.setItem(HOTELS_CACHE_KEY, JSON.stringify(normalized)).catch(() => {});
+    const fetchHotels = async (): Promise<HotelListItem[]> => {
+      try {
+        const res = await authFetch("/api/hotels", {}, 40000);
+        const data = res.ok ? await res.json() : [];
+        const list = Array.isArray(data) ? data : [];
+        return normalizeHotels(list);
+      } catch {
+        return [];
       }
+    };
+    let normalized = await fetchHotels();
+    const retryDelays = [5000, 10000, 15000];
+    for (let i = 0; i < retryDelays.length && normalized.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, retryDelays[i]));
+      normalized = await fetchHotels();
+    }
+    setHotels(normalized);
+    if (normalized.length > 0) {
+      AsyncStorage.setItem(HOTELS_CACHE_KEY, JSON.stringify(normalized)).catch(() => {});
       const { getOptimizedImageUrl, FALLBACK_HOTEL_IMAGE } = await import("@/lib/image-utils");
       const urls = normalized.slice(0, 35).map((h) => getOptimizedImageUrl(h?.images?.[0], "card")).filter(Boolean) as string[];
       const uniqueUrls = [...new Set([FALLBACK_HOTEL_IMAGE, ...urls])];
       if (uniqueUrls.length > 0) Image.prefetch(uniqueUrls, "memory-disk").catch(() => {});
-    } catch {
-      setHotels([]);
     }
   }, []);
 

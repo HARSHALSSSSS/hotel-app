@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -53,6 +53,49 @@ function formatDuration(sec: number) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Optimize SDP for high-quality voice: Opus FEC, bitrate for clarity and packet-loss resilience */
+function optimizeSdpForVoice(sdp: RTCSessionDescriptionInit): RTCSessionDescriptionInit {
+  let sdpStr = typeof sdp.sdp === "string" ? sdp.sdp : "";
+  if (!sdpStr) return sdp;
+
+  sdpStr = sdpStr.replace(/a=fmtp:(\d+)\s+([^\r\n]+)/g, (_, pt: string, rest: string) => {
+    if (!/opus/i.test(rest)) return `a=fmtp:${pt} ${rest}`;
+    const parts = rest.split(";").filter(Boolean);
+    const params: Record<string, string> = {};
+    parts.forEach((p) => {
+      const eq = p.indexOf("=");
+      if (eq > 0) params[p.slice(0, eq).trim()] = p.slice(eq + 1).trim();
+    });
+    params.useinbandfec = "1";
+    params.maxaveragebitrate = "320000";
+    params.minptime = "10";
+    const prefix = parts[0].includes("=") ? "" : parts[0] + ";";
+    const fmtpParams = Object.entries(params).map(([k, v]) => `${k}=${v}`).join(";");
+    return `a=fmtp:${pt} ${prefix}${fmtpParams}`;
+  });
+
+  const rtpmapMatch = sdpStr.match(/a=rtpmap:(\d+)\s+opus\/\d+/i);
+  if (rtpmapMatch) {
+    const pt = rtpmapMatch[1];
+    if (!sdpStr.includes(`a=fmtp:${pt}`)) {
+      sdpStr = sdpStr.replace(
+        new RegExp(`(a=rtpmap:${pt}\\s+opus/[^\\r\\n]+)`, "i"),
+        `$1\r\na=fmtp:${pt} useinbandfec=1;maxaveragebitrate=320000;minptime=10`
+      );
+    }
+  }
+
+  return { type: sdp.type, sdp: sdpStr };
+}
+
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+];
+
 export default function CallScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useApp();
@@ -73,17 +116,19 @@ export default function CallScreen() {
   const [status, setStatus] = useState<"connecting" | "connected" | "ended" | "error">("connecting");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [muted, setMuted] = useState(false);
-  const [videoOff, setVideoOff] = useState(false);
+  const voiceOnly = params.voiceOnly === "1";
+  const [videoOff, setVideoOff] = useState(voiceOnly);
+  const [hasVideoTrack, setHasVideoTrack] = useState(!voiceOnly);
   const callDuration = useCallDuration(status === "connected");
 
   const callIdRef = useRef(paramCallId || generateCallId());
   const callId = callIdRef.current;
   const roomId = `call-${callId}`;
   const remoteName = isCallee ? remoteNameParam : hotelName;
-  const voiceOnly = params.voiceOnly === "1";
   const sendRef = useRef<(msg: object) => void>(() => {});
   const closeWsRef = useRef<() => void>(() => {});
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const iceQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -113,10 +158,12 @@ export default function CallScreen() {
     router.back();
   };
 
-  const audioConstraints = {
+  const audioConstraints: MediaTrackConstraints = {
     echoCancellation: { ideal: true },
     noiseSuppression: { ideal: true },
     autoGainControl: { ideal: true },
+    sampleRate: { ideal: 48000 },
+    channelCount: { ideal: 1 },
   };
 
   const getLocalStream = async (): Promise<any> => {
@@ -155,11 +202,10 @@ export default function CallScreen() {
   };
 
   const createPeerConnection = (remoteUserId: string): any => {
-    const config = {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-      ],
+    const config: RTCConfiguration = {
+      iceServers: ICE_SERVERS,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
     };
     if (isWeb && typeof window !== "undefined" && window.RTCPeerConnection) {
       const pc = new (window as any).RTCPeerConnection(config);
@@ -182,8 +228,11 @@ export default function CallScreen() {
         }
       };
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") setStatus("ended");
         if (pc.connectionState === "connected") setStatus("connected");
+        else if (pc.connectionState === "failed" || pc.connectionState === "closed") setStatus("ended");
+        else if (pc.connectionState === "disconnected") {
+          setTimeout(() => { if (pc.connectionState === "disconnected") setStatus("ended"); }, 5000);
+        }
       };
       return pc;
     }
@@ -215,8 +264,11 @@ export default function CallScreen() {
         }
       };
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "failed" || pc.connectionState === "disconnected" || pc.connectionState === "closed") setStatus("ended");
         if (pc.connectionState === "connected") setStatus("connected");
+        else if (pc.connectionState === "failed" || pc.connectionState === "closed") setStatus("ended");
+        else if (pc.connectionState === "disconnected") {
+          setTimeout(() => { if (pc.connectionState === "disconnected") setStatus("ended"); }, 5000);
+        }
       };
       return pc;
     }
@@ -241,11 +293,12 @@ export default function CallScreen() {
                 pcRef.current = pc;
                 pc.createOffer()
                   .then((offer) => {
-                    pc.setLocalDescription(offer);
+                    const optimized = optimizeSdpForVoice(offer);
+                    pc.setLocalDescription(optimized);
                     sendRef.current({
                       type: "call:offer",
                       toUserId: peerIds[0],
-                      sdp: offer,
+                      sdp: optimized,
                     });
                   })
                   .catch(() => {
@@ -296,13 +349,21 @@ export default function CallScreen() {
             const SessionDesc = isWeb && typeof window !== "undefined" ? (window as any).RTCSessionDescription : RNWebRTC?.RTCSessionDescription;
             if (SessionDesc) {
               pc.setRemoteDescription(new SessionDesc(msg.sdp))
-                .then(() => pc.createAnswer())
+                .then(() => {
+                  iceQueueRef.current.forEach((c) => {
+                    const IceCand = isWeb && typeof window !== "undefined" ? (window as any).RTCIceCandidate : RNWebRTC?.RTCIceCandidate;
+                    pc.addIceCandidate(new IceCand(c)).catch(() => {});
+                  });
+                  iceQueueRef.current = [];
+                  return pc.createAnswer();
+                })
                 .then((answer: any) => {
-                  pc.setLocalDescription(answer);
+                  const optimized = optimizeSdpForVoice(answer);
+                  pc.setLocalDescription(optimized);
                   sendRef.current({
                     type: "call:answer",
                     toUserId: msg.fromUserId,
-                    sdp: answer,
+                    sdp: optimized,
                   });
                 })
                 .catch(() => {
@@ -314,18 +375,35 @@ export default function CallScreen() {
         } else if (msg.type === "call:answer") {
           const SessionDesc = isWeb && typeof window !== "undefined" ? (window as any).RTCSessionDescription : RNWebRTC?.RTCSessionDescription;
           if (SessionDesc && pcRef.current) {
-            pcRef.current.setRemoteDescription(new SessionDesc(msg.sdp)).catch(() => {
-              setErrorMessage("Connection failed");
-              setStatus("error");
-            });
+            pcRef.current.setRemoteDescription(new SessionDesc(msg.sdp))
+              .then(() => {
+                const IceCand = isWeb && typeof window !== "undefined" ? (window as any).RTCIceCandidate : RNWebRTC?.RTCIceCandidate;
+                iceQueueRef.current.forEach((c) => {
+                  pcRef.current?.addIceCandidate(new IceCand(c)).catch(() => {});
+                });
+                iceQueueRef.current = [];
+              })
+              .catch(() => {
+                setErrorMessage("Connection failed");
+                setStatus("error");
+              });
           }
         } else if (msg.type === "call:ice") {
           const c = msg.candidate;
           const IceCand = isWeb && typeof window !== "undefined" ? (window as any).RTCIceCandidate : RNWebRTC?.RTCIceCandidate;
-          if (c && pcRef.current && IceCand) {
-            pcRef.current.addIceCandidate(new IceCand(c)).catch(() => {
-              // Ignore "candidate already processed" / "ignored" - expected during negotiation
-            });
+          if (!c || !pcRef.current || !IceCand) return;
+          const addCand = (cand: RTCIceCandidateInit) => {
+            pcRef.current?.addIceCandidate(new IceCand(cand))
+              .catch(() => {});
+          };
+          if (pcRef.current.remoteDescription) {
+            addCand(c);
+            const q = iceQueueRef.current;
+            while (q.length > 0) {
+              addCand(q.shift()!);
+            }
+          } else {
+            iceQueueRef.current.push(c);
           }
         }
       },
@@ -369,7 +447,58 @@ export default function CallScreen() {
     videoTracks.forEach((t) => {
       t.enabled = !videoOff;
     });
+    if (isWeb && localVideoRef.current) {
+      const el = (localVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current;
+      if (el) {
+        if (videoOff) {
+          el.srcObject = null;
+          el.style.opacity = "0";
+        } else {
+          el.srcObject = localStreamRef.current;
+          el.style.opacity = "1";
+        }
+      }
+    }
   }, [videoOff]);
+
+  const addVideoTrack = useCallback(async () => {
+    const remoteId = remoteUserIdRef.current;
+    if (!remoteId || !pcRef.current || !localStreamRef.current) return;
+    try {
+      const mediaConstraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } };
+      let stream: MediaStream;
+      if (isWeb && navigator.mediaDevices?.getUserMedia) {
+        stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+      } else if (RNWebRTC?.mediaDevices?.getUserMedia) {
+        stream = await RNWebRTC.mediaDevices.getUserMedia(mediaConstraints);
+      } else return;
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) return;
+      stream.getTracks().forEach((t) => {
+        if (t.kind !== "video") t.stop();
+      });
+      localStreamRef.current.addTrack(videoTrack);
+      pcRef.current.addTrack(videoTrack, localStreamRef.current);
+      setHasVideoTrack(true);
+      setVideoOff(false);
+      if (isWeb) {
+        setTimeout(() => {
+          const el = (localVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current;
+          if (el && localStreamRef.current) {
+            el.srcObject = localStreamRef.current;
+            el.style.opacity = "1";
+          }
+        }, 150);
+      } else if (localStreamRef.current?.toURL) {
+        setLocalStreamURL(localStreamRef.current.toURL());
+      }
+      pcRef.current.createOffer().then((offer) => {
+        const optimized = optimizeSdpForVoice(offer);
+        pcRef.current?.setLocalDescription(optimized);
+        sendRef.current({ type: "call:offer", toUserId: remoteId, sdp: optimized });
+      }).catch(() => {});
+    } catch {}
+  }, []);
 
   const openChat = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -420,8 +549,9 @@ export default function CallScreen() {
   const localContainerRef = useRef<View>(null);
   const createdVideosRef = useRef<HTMLVideoElement[]>([]);
 
+  const inVideoModeForRefs = hasVideoTrack || !voiceOnly;
   useEffect(() => {
-    if (!isWeb || typeof document === "undefined") return;
+    if (!isWeb || typeof document === "undefined" || !inVideoModeForRefs) return;
     const id = setTimeout(() => {
       const getNode = (ref: React.RefObject<View | null>): HTMLElement | null => {
         const r = ref.current as any;
@@ -449,6 +579,9 @@ export default function CallScreen() {
       localVideo.playsInline = true;
       localVideo.muted = true;
       localVideo.style.cssText = "width:100%;height:100%;object-fit:cover;";
+      if (localStreamRef.current && !videoOff) {
+        localVideo.srcObject = localStreamRef.current;
+      }
       localContainer.appendChild(localVideo);
       (localVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = localVideo;
       createdVideosRef.current.push(localVideo);
@@ -458,7 +591,7 @@ export default function CallScreen() {
       createdVideosRef.current.forEach((el) => el.remove());
       createdVideosRef.current = [];
     };
-  }, [isWeb]);
+  }, [isWeb, inVideoModeForRefs]);
 
   if (status === "error") {
     return (
@@ -474,7 +607,8 @@ export default function CallScreen() {
   }
 
   const renderVideoArea = () => {
-    if (voiceOnly) {
+    const inVideoMode = hasVideoTrack || !voiceOnly;
+    if (!inVideoMode) {
       return (
         <>
           <View style={styles.remotePlaceholder}>
@@ -641,12 +775,16 @@ export default function CallScreen() {
           <Text style={styles.endCallLabel}>End</Text>
         </Pressable>
         <ControlButton
-          icon={videoOff ? "videocam-off" : "videocam"}
-          label={videoOff ? "Camera off" : "Camera"}
-          active={videoOff}
+          icon={videoOff || !hasVideoTrack ? "videocam-off" : "videocam"}
+          label={!hasVideoTrack ? "Camera" : videoOff ? "Camera off" : "Camera"}
+          active={videoOff && hasVideoTrack}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setVideoOff((v) => !v);
+            if (!hasVideoTrack) {
+              addVideoTrack();
+            } else {
+              setVideoOff((v) => !v);
+            }
           }}
         />
         <ControlButton
@@ -815,7 +953,7 @@ const styles = StyleSheet.create({
   },
   videoOffOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "#1a1a1a",
     alignItems: "center",
     justifyContent: "center",
   },

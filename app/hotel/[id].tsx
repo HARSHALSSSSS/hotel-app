@@ -292,7 +292,29 @@ export default function HotelDetailScreen() {
         const res = await authFetch(`/api/hotels/${id}`);
         if (res.ok) {
           const data = await res.json();
-          setHotel(mapApiHotelToDetail(data));
+          let detail = mapApiHotelToDetail(data);
+          if (!detail.rooms || detail.rooms.length === 0) {
+            try {
+              const roomsRes = await authFetch(`/api/hotels/${id}/rooms`);
+              if (roomsRes.ok) {
+                const roomsData = await roomsRes.json();
+                const mapped = (roomsData || []).map((r: any) => ({
+                  id: r.id,
+                  name: r.name,
+                  description: r.description ?? "",
+                  pricePerNight: Number(r.pricePerNight ?? r.price_per_night ?? 0),
+                  maxGuests: Number(r.maxGuests ?? r.max_guests ?? 2),
+                  bedType: r.bedType ?? r.bed_type ?? "Queen",
+                  size: Number(r.size ?? 0),
+                  amenities: Array.isArray(r.amenities) ? r.amenities : [],
+                  image: r.image ?? "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
+                  available: r.available !== false,
+                }));
+                if (mapped.length > 0) detail = { ...detail, rooms: mapped };
+              }
+            } catch {}
+          }
+          setHotel(detail);
         } else if (cached) {
           setHotel({
             ...cached,
@@ -647,7 +669,7 @@ export default function HotelDetailScreen() {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       router.push({
                         pathname: "/call",
-                        params: { hotelId: hotel.id, hotelName: hotel.name },
+                        params: { hotelId: hotel.id, hotelName: hotel.name, voiceOnly: "1" },
                       });
                     }}
                   >
