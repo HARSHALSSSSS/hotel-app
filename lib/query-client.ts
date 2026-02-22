@@ -1,20 +1,32 @@
+import { Platform } from "react-native";
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-/**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
- */
+function isLocalOrPrivateHost(host: string): boolean {
+  const hostPart = host.split(":")[0];
+  return (
+    hostPart === "localhost" ||
+    hostPart === "127.0.0.1" ||
+    hostPart === "10.0.2.2" ||
+    hostPart.startsWith("10.") ||
+    hostPart.startsWith("192.168.") ||
+    hostPart.startsWith("172.16.") ||
+    hostPart.startsWith("172.17.") ||
+    hostPart.startsWith("172.18.") ||
+    hostPart.startsWith("172.19.") ||
+    hostPart.startsWith("172.2") ||
+    hostPart.startsWith("172.30.") ||
+    hostPart.startsWith("172.31.")
+  );
+}
+
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
-
-  if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+  let host = process.env.EXPO_PUBLIC_DOMAIN || "localhost:5000";
+  if (Platform.OS === "android" && (host.startsWith("localhost") || host.startsWith("127.0.0.1"))) {
+    host = host.replace(/^localhost|^127\.0\.0\.1/, "10.0.2.2");
   }
-
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+  const protocol = isLocalOrPrivateHost(host) ? "http" : "https";
+  return `${protocol}://${host}`.replace(/\/$/, "");
 }
 
 async function throwIfResNotOk(res: Response) {

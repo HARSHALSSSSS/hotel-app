@@ -31,6 +31,12 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# uploads
+uploads/
+
+# npm pack / large tarballs
+*.tgz
+
 # local env files
 .env*.local
 

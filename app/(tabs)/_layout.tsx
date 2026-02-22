@@ -7,6 +7,7 @@ import { Platform, StyleSheet, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React from "react";
 import Colors from "@/constants/colors";
+import { rs, rf } from "@/constants/responsive";
 
 function NativeTabLayout() {
   return (
@@ -16,16 +17,16 @@ function NativeTabLayout() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="search" role="search">
-        <Icon sf="magnifyingglass" />
-        <Label>Search</Label>
+        <Icon sf={{ default: "map", selected: "map.fill" }} />
+        <Label>Explore</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="saved">
         <Icon sf={{ default: "heart", selected: "heart.fill" }} />
-        <Label>Saved</Label>
+        <Label>Favorite</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="bookings">
-        <Icon sf={{ default: "calendar", selected: "calendar" }} />
-        <Label>Bookings</Label>
+      <NativeTabs.Trigger name="chat">
+        <Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} />
+        <Label>Chat</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -53,7 +54,7 @@ function ClassicTabLayout() {
           borderTopWidth: isWeb ? 1 : 0,
           borderTopColor: Colors.borderLight,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          ...(isWeb ? { height: rs(84) } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
@@ -77,35 +78,43 @@ function ClassicTabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "home" : "home-outline"} size={rs(22)} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: "Explore",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "search" : "search-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "map" : "map-outline"} size={rs(22)} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="saved"
         options={{
-          title: "Saved",
+          title: "Favorite",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "heart" : "heart-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "heart" : "heart-outline"} size={rs(22)} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Chat",
+          tabBarHideOnKeyboard: false,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={rs(22)} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
+          href: null,
           title: "Bookings",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} />
-          ),
         }}
       />
       <Tabs.Screen
@@ -113,7 +122,7 @@ function ClassicTabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
+            <Ionicons name={focused ? "person" : "person-outline"} size={rs(22)} color={color} />
           ),
         }}
       />

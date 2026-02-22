@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import Colors from "@/constants/colors";
+import { rs, rf, MIN_TOUCH } from "@/constants/responsive";
 import { useApp } from "@/lib/app-context";
 import { Notification } from "@/lib/hotel-data";
 
@@ -37,7 +38,7 @@ function NotificationItem({ notif, index, onPress }: { notif: Notification; inde
         onPress={onPress}
       >
         <View style={[styles.notifIcon, { backgroundColor: colorMap[notif.type] + "15" }]}>
-          <Ionicons name={iconMap[notif.type] as any} size={20} color={colorMap[notif.type]} />
+          <Ionicons name={iconMap[notif.type] as any} size={rs(20)} color={colorMap[notif.type]} />
         </View>
         <View style={styles.notifContent}>
           <View style={styles.notifHeader}>
@@ -58,23 +59,52 @@ function NotificationItem({ notif, index, onPress }: { notif: Notification; inde
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
-  const { notifications, markNotificationRead } = useApp();
+  const { notifications, markNotificationRead, markAllNotificationsRead, isAuthenticated } = useApp();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+  const hasUnread = notifications.some((n) => !n.read);
+
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={rs(22)} color={Colors.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <View style={{ width: rs(80) }} />
+        </View>
+        <View style={styles.empty}>
+          <Ionicons name="notifications-off-outline" size={rs(48)} color={Colors.textTertiary} />
+          <Text style={styles.emptyTitle}>Sign in to view notifications</Text>
+          <Text style={styles.emptyText}>Your notifications will appear here</Text>
+          <Pressable style={styles.signInBtn} onPress={() => router.push("/auth/login")}>
+            <Text style={styles.signInBtnText}>Sign In</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+      <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color={Colors.text} />
+          <Ionicons name="chevron-back" size={rs(22)} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={{ width: 40 }} />
+        {hasUnread ? (
+          <Pressable style={styles.markAllBtn} onPress={markAllNotificationsRead}>
+            <Text style={styles.markAllText}>Mark all read</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: rs(80) }} />
+        )}
       </View>
 
       {notifications.length === 0 ? (
         <Animated.View entering={FadeIn.duration(400)} style={styles.empty}>
-          <Ionicons name="notifications-off-outline" size={48} color={Colors.textTertiary} />
+          <Ionicons name="notifications-off-outline" size={rs(48)} color={Colors.textTertiary} />
           <Text style={styles.emptyTitle}>No notifications</Text>
           <Text style={styles.emptyText}>You're all caught up!</Text>
         </Animated.View>
@@ -82,7 +112,7 @@ export default function NotificationsScreen() {
         <FlatList
           data={notifications}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: bottomInset + 16 }]}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomInset + rs(16) }]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
             <NotificationItem
@@ -109,36 +139,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: rs(16),
+    paddingBottom: rs(12),
     backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: Math.max(rs(40), MIN_TOUCH),
+    height: Math.max(rs(40), MIN_TOUCH),
+    borderRadius: rs(20),
     backgroundColor: Colors.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: rf(18),
     fontWeight: "700" as const,
     color: Colors.text,
   },
+  markAllBtn: {
+    paddingVertical: rs(8),
+    paddingHorizontal: rs(12),
+    justifyContent: "center",
+    minHeight: MIN_TOUCH,
+  },
+  markAllText: {
+    fontSize: rf(14),
+    fontWeight: "600" as const,
+    color: Colors.primary,
+  },
   list: {
-    padding: 20,
+    padding: rs(20),
   },
   notifCard: {
     flexDirection: "row",
     alignItems: "flex-start",
     backgroundColor: Colors.card,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: rs(14),
+    padding: rs(14),
+    marginBottom: rs(10),
     position: "relative",
+    minHeight: MIN_TOUCH,
   },
   notifUnread: {
     backgroundColor: Colors.primary + "06",
@@ -146,12 +188,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary + "15",
   },
   notifIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: rs(42),
+    height: rs(42),
+    borderRadius: rs(12),
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: rs(12),
   },
   notifContent: {
     flex: 1,
@@ -160,14 +202,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 4,
+    marginBottom: rs(4),
   },
   notifTitle: {
-    fontSize: 14,
+    fontSize: rf(14),
     fontWeight: "500" as const,
     color: Colors.text,
     flex: 1,
-    marginRight: 8,
+    marginRight: rs(8),
   },
   notifTitleBold: {
     fontWeight: "700" as const,
@@ -177,34 +219,48 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
   },
   notifMessage: {
-    fontSize: 13,
+    fontSize: rf(13),
     color: Colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: rf(18),
   },
   unreadDot: {
     position: "absolute",
-    top: 16,
-    right: 14,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: rs(16),
+    right: rs(14),
+    width: rs(8),
+    height: rs(8),
+    borderRadius: rs(4),
     backgroundColor: Colors.primary,
   },
   empty: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingBottom: 80,
+    gap: rs(8),
+    paddingBottom: rs(80),
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: rf(18),
     fontWeight: "700" as const,
     color: Colors.text,
-    marginTop: 8,
+    marginTop: rs(8),
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: rf(14),
     color: Colors.textSecondary,
+  },
+  signInBtn: {
+    marginTop: rs(16),
+    backgroundColor: Colors.primary,
+    paddingVertical: rs(14),
+    paddingHorizontal: rs(28),
+    borderRadius: rs(12),
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+  },
+  signInBtnText: {
+    fontSize: rf(16),
+    fontWeight: "700" as const,
+    color: Colors.textInverse,
   },
 });

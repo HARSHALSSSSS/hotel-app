@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, View, Text, Modal, Pressable, ScrollView, Platform } from "react-native";
+import { StyleSheet, View, Text, Modal, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { rs, rf, MIN_TOUCH } from "@/constants/responsive";
 
 interface FilterModalProps {
   visible: boolean;
@@ -20,11 +21,11 @@ export interface FilterState {
 }
 
 const PRICE_RANGES = [
-  { label: "Any", min: 0, max: 1000 },
-  { label: "$0-200", min: 0, max: 200 },
-  { label: "$200-400", min: 200, max: 400 },
-  { label: "$400-600", min: 400, max: 600 },
-  { label: "$600+", min: 600, max: 10000 },
+  { label: "Any", min: 0, max: 200000 },
+  { label: "₹0-20K", min: 0, max: 20000 },
+  { label: "₹20K-40K", min: 20000, max: 40000 },
+  { label: "₹40K-60K", min: 40000, max: 60000 },
+  { label: "₹60K+", min: 60000, max: 200000 },
 ];
 
 const RATINGS = [
@@ -43,7 +44,7 @@ const SORT_OPTIONS: { label: string; value: FilterState["sortBy"] }[] = [
 
 export const DEFAULT_FILTERS: FilterState = {
   minPrice: 0,
-  maxPrice: 1000,
+  maxPrice: 200000,
   minRating: 0,
   sortBy: "popular",
 };
@@ -59,13 +60,13 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.container, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.container, { paddingBottom: insets.bottom + rs(16) }]}>
           <View style={styles.header}>
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <Text style={styles.title}>Filters</Text>
-              <Pressable onPress={onClose} hitSlop={8}>
-                <Ionicons name="close" size={24} color={Colors.text} />
+              <Pressable onPress={onClose} hitSlop={rs(8)}>
+                <Ionicons name="close" size={rs(24)} color={Colors.text} />
               </Pressable>
             </View>
           </View>
@@ -100,7 +101,7 @@ export default function FilterModal({ visible, onClose, onApply, initialFilters 
                     setFilters({ ...filters, minRating: r.value });
                   }}
                 >
-                  {r.value > 0 && <Ionicons name="star" size={12} color={filters.minRating === r.value ? "#fff" : Colors.star} />}
+                  {r.value > 0 && <Ionicons name="star" size={rs(12)} color={filters.minRating === r.value ? "#fff" : Colors.star} />}
                   <Text style={[styles.chipText, filters.minRating === r.value && styles.chipTextActive]}>
                     {r.label}
                   </Text>
@@ -165,59 +166,59 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: rs(24),
+    borderTopRightRadius: rs(24),
     maxHeight: "80%",
   },
   header: {
     alignItems: "center",
-    paddingTop: 8,
+    paddingTop: rs(8),
   },
   handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
+    width: rs(40),
+    height: rs(4),
+    borderRadius: rs(2),
     backgroundColor: Colors.border,
-    marginBottom: 16,
+    marginBottom: rs(16),
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     width: "100%",
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: rs(20),
+    paddingBottom: rs(16),
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
   title: {
-    fontSize: 20,
+    fontSize: rf(20),
     fontWeight: "700" as const,
     color: Colors.text,
   },
   content: {
-    padding: 20,
+    padding: rs(20),
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: rf(16),
     fontWeight: "700" as const,
     color: Colors.text,
-    marginBottom: 12,
-    marginTop: 8,
+    marginBottom: rs(12),
+    marginTop: rs(8),
   },
   optionsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
+    gap: rs(8),
+    marginBottom: rs(20),
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: rs(4),
+    paddingHorizontal: rs(16),
+    paddingVertical: rs(10),
+    borderRadius: rs(12),
     backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.borderLight,
@@ -227,7 +228,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   chipText: {
-    fontSize: 13,
+    fontSize: rf(13),
     fontWeight: "600" as const,
     color: Colors.textSecondary,
   },
@@ -235,19 +236,19 @@ const styles = StyleSheet.create({
     color: Colors.textInverse,
   },
   sortList: {
-    gap: 4,
-    marginBottom: 20,
+    gap: rs(4),
+    marginBottom: rs(20),
   },
   sortItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: rs(14),
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
   sortText: {
-    fontSize: 15,
+    fontSize: rf(15),
     color: Colors.textSecondary,
   },
   sortTextActive: {
@@ -255,9 +256,9 @@ const styles = StyleSheet.create({
     fontWeight: "600" as const,
   },
   radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: rs(22),
+    height: rs(22),
+    borderRadius: rs(11),
     borderWidth: 2,
     borderColor: Colors.border,
     alignItems: "center",
@@ -267,41 +268,45 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   radioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: rs(12),
+    height: rs(12),
+    borderRadius: rs(6),
     backgroundColor: Colors.primary,
   },
   footer: {
     flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    gap: rs(12),
+    paddingHorizontal: rs(20),
+    paddingTop: rs(12),
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
   },
   resetBtn: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: rs(16),
+    borderRadius: rs(14),
     borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: "center",
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
   },
   resetText: {
-    fontSize: 15,
+    fontSize: rf(15),
     fontWeight: "600" as const,
     color: Colors.textSecondary,
   },
   applyBtn: {
     flex: 2,
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: rs(16),
+    borderRadius: rs(14),
     backgroundColor: Colors.primary,
     alignItems: "center",
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
   },
   applyText: {
-    fontSize: 15,
+    fontSize: rf(15),
     fontWeight: "700" as const,
     color: Colors.textInverse,
   },

@@ -21,12 +21,14 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull().default("Guest User"),
   phone: text("phone"),
+  gender: text("gender"),
   avatar: text("avatar"),
   role: text("role").notNull().default("user"),
   walletBalance: real("wallet_balance").notNull().default(0),
   refreshToken: text("refresh_token"),
   otpCode: text("otp_code"),
   otpExpiry: timestamp("otp_expiry"),
+  otpPurpose: text("otp_purpose"),
   isVerified: boolean("is_verified").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -156,6 +158,30 @@ export const transactions = pgTable("transactions", {
   index("transactions_booking_id_idx").on(table.bookingId),
 ]);
 
+export const chatConversations = pgTable("chat_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user1Id: varchar("user1_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user2Id: varchar("user2_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("chat_conversations_user1_idx").on(table.user1Id),
+  index("chat_conversations_user2_idx").on(table.user2Id),
+  uniqueIndex("chat_conversations_users_idx").on(table.user1Id, table.user2Id),
+]);
+
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
+  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  type: text("type").notNull().default("text"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("chat_messages_conversation_idx").on(table.conversationId),
+  index("chat_messages_sender_idx").on(table.senderId),
+]);
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   username: true,
@@ -182,6 +208,7 @@ export const createBookingSchema = z.object({
   checkOut: z.string(),
   guests: z.number().min(1).max(10),
   nights: z.number().min(1),
+  paymentMethod: z.enum(["wallet", "on_arrival"]).optional().default("on_arrival"),
 });
 
 export const createReviewSchema = z.object({
@@ -199,3 +226,5 @@ export type Booking = typeof bookings.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;

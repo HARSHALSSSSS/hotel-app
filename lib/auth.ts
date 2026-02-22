@@ -3,6 +3,24 @@ import { getApiUrl } from "./query-client";
 import { fetch } from "expo/fetch";
 
 const TOKEN_KEY = "@stayease_access_token";
+const REQUEST_TIMEOUT_MS = 15000;
+
+/** Fetch with timeout to prevent infinite loading when API is unreachable */
+async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    if (e?.name === "AbortError") {
+      throw new Error("Connection timeout. Please check your network and ensure the server is running.");
+    }
+    throw new Error(e?.message || "Network error. Please try again.");
+  }
+}
 const REFRESH_KEY = "@stayease_refresh_token";
 const USER_KEY = "@stayease_user";
 
@@ -12,6 +30,7 @@ export interface AuthUser {
   username: string;
   name: string;
   phone: string | null;
+  gender: string | null;
   avatar: string | null;
   role: string;
   walletBalance: number;
@@ -102,15 +121,20 @@ async function refreshTokens(): Promise<boolean> {
 
 export async function login(email: string, password: string): Promise<{ user: AuthUser }> {
   const baseUrl = getApiUrl();
-  const res = await fetch(new URL("/api/auth/login", baseUrl).toString(), {
+  const url = new URL("/api/auth/login", baseUrl).toString();
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.message || "Login failed");
+    let message = "Login failed";
+    try {
+      const err = await res.json();
+      if (err?.message) message = err.message;
+    } catch {}
+    throw new Error(message);
   }
 
   const data = await res.json();
@@ -121,15 +145,20 @@ export async function login(email: string, password: string): Promise<{ user: Au
 
 export async function register(email: string, username: string, password: string, name: string): Promise<{ user: AuthUser }> {
   const baseUrl = getApiUrl();
-  const res = await fetch(new URL("/api/auth/register", baseUrl).toString(), {
+  const url = new URL("/api/auth/register", baseUrl).toString();
+  const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, username, password, name }),
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.message || "Registration failed");
+    let message = "Registration failed";
+    try {
+      const err = await res.json();
+      if (err?.message) message = err.message;
+    } catch {}
+    throw new Error(message);
   }
 
   const data = await res.json();
@@ -154,4 +183,82 @@ export async function autoLogin(): Promise<AuthUser | null> {
   } catch {
     return await getStoredUser();
   }
+}
+
+export async function requestOtp(email: string): Promise<{ message: string; otp?: string }> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/otp/request", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+  return data;
+}
+
+export async function verifyOtp(email: string, otp: string): Promise<{ user: AuthUser }> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/otp/verify", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Invalid OTP");
+  }
+  const data = await res.json();
+  await setTokens(data.accessToken, data.refreshToken);
+  await storeUser(data.user);
+  return { user: data.user };
+}
+
+export async function updateProfile(data: Partial<{ name: string; phone: string; avatar: string; gender: string }>): Promise<AuthUser> {
+  const res = await authFetch("/api/auth/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Update failed");
+  }
+  const user = await res.json();
+  await storeUser(user);
+  return user;
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string; otp?: string }> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/forgot-password", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+  return data;
+}
+
+export async function verifyResetOtp(email: string, otp: string): Promise<{ resetToken: string }> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/verify-reset-otp", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Invalid OTP");
+  return data;
+}
+
+export async function resetPassword(resetToken: string, newPassword: string): Promise<void> {
+  const baseUrl = getApiUrl();
+  const res = await fetch(new URL("/api/auth/reset-password", baseUrl).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resetToken, newPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to reset password");
 }

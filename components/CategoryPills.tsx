@@ -1,8 +1,9 @@
 import React from "react";
-import { StyleSheet, ScrollView, Pressable, Text, View } from "react-native";
+import { StyleSheet, ScrollView, Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { rs, rf } from "@/constants/responsive";
 import { CATEGORIES } from "@/lib/hotel-data";
 
 interface CategoryPillsProps {
@@ -26,7 +27,7 @@ export default function CategoryPills({ selected, onSelect }: CategoryPillsProps
           >
             <Ionicons
               name={cat.icon as any}
-              size={16}
+              size={rs(16)}
               color={isActive ? Colors.textInverse : Colors.textSecondary}
             />
             <Text style={[styles.pillText, isActive && styles.pillTextActive]}>{cat.label}</Text>
@@ -39,17 +40,17 @@ export default function CategoryPills({ selected, onSelect }: CategoryPillsProps
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    gap: 8,
-    paddingVertical: 4,
+    paddingHorizontal: rs(20),
+    gap: rs(8),
+    paddingVertical: rs(4),
   },
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
+    gap: rs(6),
+    paddingHorizontal: rs(16),
+    paddingVertical: rs(10),
+    borderRadius: rs(24),
     backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.borderLight,
@@ -59,7 +60,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: rf(13),
     fontWeight: "600" as const,
     color: Colors.textSecondary,
   },

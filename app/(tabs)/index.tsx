@@ -7,39 +7,40 @@ import {
   Pressable,
   Platform,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
-import { Image } from "expo-image";
+import { HotelImage } from "@/components/HotelImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
-import { HOTELS, POPULAR_DESTINATIONS } from "@/lib/hotel-data";
+import { rs, rf, MIN_TOUCH } from "@/constants/responsive";
 import { useApp } from "@/lib/app-context";
-import HotelCard from "@/components/HotelCard";
-import SearchBar from "@/components/SearchBar";
-import CategoryPills from "@/components/CategoryPills";
-import DestinationCard from "@/components/DestinationCard";
+import type { HotelListItem } from "@/lib/app-context";
+
+const RECOMMENDED_CARD_WIDTH = rs(200);
+const RECOMMENDED_CARD_GAP = rs(14);
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { unreadCount } = useApp();
-  const [category, setCategory] = useState("all");
+  const { unreadCount, hotels, featuredHotels, refreshHotels, isFavorite, toggleFavorite, locationDisplayName, isLoading } = useApp();
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const locationLabel = locationDisplayName || "Tap to set location";
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
-  const featuredHotels = HOTELS.filter((h) => h.featured);
-  const filteredHotels =
-    category === "all"
-      ? HOTELS.slice(0, 6)
-      : HOTELS.filter((h) => h.category === category);
+  const recommendedHotels = featuredHotels.length > 0 ? featuredHotels : hotels.slice(0, 4);
+  const nearbyHotels = featuredHotels.length > 0
+    ? hotels.filter((h) => !featuredHotels.some((f) => f.id === h.id)).slice(0, 10)
+    : hotels.slice(4, 14);
+  const displayNearby = nearbyHotels.length > 0 ? nearbyHotels : hotels.slice(0, 6);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    await refreshHotels();
+    setRefreshing(false);
   };
 
   return (
@@ -51,37 +52,52 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
       >
-        <View style={[styles.header, { paddingTop: topInset + 12 }]}>
-          <Animated.View entering={FadeIn.duration(600)} style={styles.headerTop}>
-            <View>
-              <Text style={styles.greeting}>Hello there</Text>
-              <Text style={styles.headline}>Find your perfect stay</Text>
+        <Animated.View entering={FadeIn.duration(300)} style={[styles.header, { paddingTop: topInset + rs(16) }]}>
+          <View style={styles.headerTop}>
+            <View style={styles.locationBlock}>
+              <Text style={styles.locationLabel}>Location</Text>
+              <Pressable
+                style={styles.locationRow}
+                onPress={() => router.push("/enter-location")}
+              >
+                <Ionicons name="location" size={rs(18)} color={Colors.primary} />
+                <Text style={styles.locationText}>{locationLabel}</Text>
+                <Ionicons name="chevron-down" size={rs(16)} color={Colors.textSecondary} />
+              </Pressable>
             </View>
             <Pressable
               style={styles.notifButton}
               onPress={() => router.push("/notifications")}
             >
-              <Ionicons name="notifications-outline" size={22} color={Colors.text} />
+              <Ionicons name="notifications-outline" size={rs(24)} color={Colors.text} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{unreadCount}</Text>
                 </View>
               )}
             </Pressable>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-            <Pressable onPress={() => router.push("/(tabs)/search")}>
-              <View pointerEvents="none">
-                <SearchBar value="" onChangeText={() => {}} placeholder="Search hotels, destinations..." />
-              </View>
+          <View style={styles.searchRow}>
+            <Pressable
+              style={styles.searchBar}
+              onPress={() => router.push("/(tabs)/search")}
+            >
+              <Ionicons name="search" size={rs(20)} color={Colors.textSecondary} />
+              <Text style={styles.searchPlaceholder}>Search</Text>
             </Pressable>
-          </Animated.View>
-        </View>
+            <Pressable
+              style={styles.filterButton}
+              onPress={() => router.push("/filter")}
+            >
+              <Ionicons name="options-outline" size={rs(22)} color={Colors.textInverse} />
+            </Pressable>
+          </View>
+        </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(50).duration(280)}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Destinations</Text>
+            <Text style={styles.sectionTitle}>Recommended Hotel</Text>
             <Pressable onPress={() => router.push("/(tabs)/search")}>
               <Text style={styles.seeAll}>See all</Text>
             </Pressable>
@@ -89,277 +105,420 @@ export default function HomeScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.destinationsRow}
+            contentContainerStyle={styles.recommendedRow}
           >
-            {POPULAR_DESTINATIONS.map((dest) => (
-              <DestinationCard
-                key={dest.id}
-                name={dest.name}
-                country={dest.country}
-                image={dest.image}
-                hotelCount={dest.hotelCount}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(tabs)/search",
-                    params: { q: dest.name },
-                  })
-                }
-              />
-            ))}
+            {recommendedHotels.length === 0 && isLoading ? (
+              <View style={styles.recommendedPlaceholder}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={styles.recommendedPlaceholderText}>Loading...</Text>
+              </View>
+            ) : (
+              recommendedHotels.map((hotel, idx) => (
+                <RecommendedCard key={hotel.id} hotel={hotel} index={idx} />
+              ))
+            )}
           </ScrollView>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(80).duration(280)}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Hotels</Text>
+            <Text style={styles.sectionTitle}>Nearby Hotel</Text>
+            <Pressable onPress={() => router.push("/(tabs)/search")}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.featuredRow}
-            decelerationRate="fast"
-            snapToInterval={280 + 14}
-          >
-            {featuredHotels.map((hotel, idx) => (
-              <FeaturedCard key={hotel.id} hotel={hotel} index={idx} />
-            ))}
-          </ScrollView>
+          <View style={styles.nearbyList}>
+            {displayNearby.length === 0 ? (
+              isLoading ? (
+                <View style={styles.emptyState}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <Text style={styles.emptySub}>Loading hotels...</Text>
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="business-outline" size={rs(48)} color={Colors.textTertiary} />
+                  <Text style={styles.emptyTitle}>No hotels here</Text>
+                  <Text style={styles.emptySub}>Pull down to refresh</Text>
+                </View>
+              )
+            ) : (
+              displayNearby.map((hotel, idx) => (
+                <NearbyCard key={hotel.id} hotel={hotel} index={idx} />
+              ))
+            )}
+          </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(400).duration(500)}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Browse by Category</Text>
-          </View>
-          <CategoryPills selected={category} onSelect={setCategory} />
-        </Animated.View>
-
-        <View style={styles.hotelList}>
-          {filteredHotels.map((hotel, idx) => (
-            <View key={hotel.id} style={styles.hotelCardWrapper}>
-              <HotelCard hotel={hotel} index={idx} />
-            </View>
-          ))}
-        </View>
-
-        <View style={{ height: Platform.OS === "web" ? 34 : 100 }} />
+        <View style={{ height: Platform.OS === "web" ? rs(34) : rs(100) }} />
       </ScrollView>
     </View>
   );
 }
 
-function FeaturedCard({ hotel, index }: { hotel: any; index: number }) {
+function RecommendedCard({ hotel, index }: { hotel: HotelListItem; index: number }) {
   const { isFavorite, toggleFavorite } = useApp();
   const saved = isFavorite(hotel.id);
+  const discount =
+    hotel.originalPrice > hotel.pricePerNight
+      ? Math.round(((hotel.originalPrice - hotel.pricePerNight) / hotel.originalPrice) * 100)
+      : 10;
+  const locationText = hotel.city && hotel.country ? `${hotel.city}, ${hotel.country}` : hotel.location;
 
   return (
-    <Pressable
-      style={styles.featuredCard}
-      onPress={() => router.push({ pathname: "/hotel/[id]", params: { id: hotel.id } })}
-    >
-      <Image source={{ uri: hotel.images[0] }} style={styles.featuredImage} contentFit="cover" transition={300} />
-      <LinearGradient colors={["transparent", "rgba(0,0,0,0.75)"]} style={styles.featuredGradient} />
+    <Animated.View entering={FadeInDown.delay(index * 30).duration(280)}>
       <Pressable
-        style={styles.featuredHeart}
-        onPress={() => toggleFavorite(hotel.id)}
-        hitSlop={8}
+        style={styles.recommendedCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push({ pathname: "/hotel/[id]", params: { id: hotel.id } });
+        }}
       >
-        <View style={styles.heartCircle}>
-          <Ionicons
-            name={saved ? "heart" : "heart-outline"}
-            size={16}
-            color={saved ? Colors.error : "#fff"}
-          />
+        <HotelImage
+          uri={hotel.images?.[0]}
+          size="card"
+          style={styles.recommendedImage}
+          contentFit="cover"
+          transition={150}
+          cachePolicy="memory-disk"
+          priority="high"
+          recyclingKey={`rec-${hotel.id}`}
+          placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+        />
+        <View style={styles.discountBadge}>
+          <Text style={styles.discountText}>{discount}% Off</Text>
+        </View>
+        <Pressable
+          style={styles.heartButton}
+          onPress={() => toggleFavorite(hotel.id)}
+          hitSlop={8}
+        >
+          <View style={styles.heartCircle}>
+            <Ionicons name={saved ? "heart" : "heart-outline"} size={rs(16)} color={saved ? Colors.error : "#fff"} />
+          </View>
+        </Pressable>
+        <View style={styles.recommendedInfo}>
+          <Text style={styles.recommendedName} numberOfLines={1}>{hotel.name}</Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="star" size={rs(14)} color={Colors.star} />
+            <Text style={styles.ratingText}>{hotel.rating}</Text>
+            <Ionicons name="location-outline" size={rs(12)} color={Colors.textSecondary} />
+            <Text style={styles.locText} numberOfLines={1}>{locationText}</Text>
+          </View>
+          <Text style={styles.priceText}>
+            ₹{hotel.pricePerNight.toLocaleString("en-IN")}
+            <Text style={styles.priceUnit}> /night</Text>
+          </Text>
         </View>
       </Pressable>
-      <View style={styles.featuredInfo}>
-        <Text style={styles.featuredName} numberOfLines={1}>
-          {hotel.name}
-        </Text>
-        <View style={styles.featuredMeta}>
-          <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.8)" />
-          <Text style={styles.featuredLocation} numberOfLines={1}>
-            {hotel.location}
-          </Text>
-        </View>
-        <View style={styles.featuredBottom}>
-          <View style={styles.featuredRating}>
-            <Ionicons name="star" size={12} color={Colors.star} />
-            <Text style={styles.featuredRatingText}>{hotel.rating}</Text>
+    </Animated.View>
+  );
+}
+
+function NearbyCard({ hotel, index }: { hotel: HotelListItem; index: number }) {
+  const { isFavorite, toggleFavorite } = useApp();
+  const saved = isFavorite(hotel.id);
+  const discount =
+    hotel.originalPrice > hotel.pricePerNight
+      ? Math.round(((hotel.originalPrice - hotel.pricePerNight) / hotel.originalPrice) * 100)
+      : 10;
+  const locationText = hotel.city && hotel.country ? `${hotel.city}, ${hotel.country}` : hotel.location;
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 25).duration(280)}>
+      <Pressable
+        style={styles.nearbyCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push({ pathname: "/hotel/[id]", params: { id: hotel.id } });
+        }}
+      >
+        <View style={styles.nearbyImageWrap}>
+          <HotelImage
+            uri={hotel.images?.[0]}
+            size="card"
+            style={styles.nearbyImage}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
+            priority={index < 6 ? "high" : "normal"}
+            recyclingKey={`nearby-${hotel.id}`}
+            placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+          />
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>{discount}% Off</Text>
           </View>
-          <Text style={styles.featuredPrice}>
-            ${hotel.pricePerNight}
-            <Text style={styles.featuredPriceUnit}>/night</Text>
+          <Pressable
+            style={styles.heartButton}
+            onPress={() => toggleFavorite(hotel.id)}
+            hitSlop={8}
+          >
+            <View style={styles.heartCircle}>
+              <Ionicons name={saved ? "heart" : "heart-outline"} size={rs(16)} color={saved ? Colors.error : "#fff"} />
+            </View>
+          </Pressable>
+        </View>
+        <View style={styles.nearbyInfo}>
+          <Text style={styles.nearbyName} numberOfLines={1}>{hotel.name}</Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="star" size={rs(14)} color={Colors.star} />
+            <Text style={styles.ratingText}>{hotel.rating}</Text>
+            <Ionicons name="location-outline" size={rs(12)} color={Colors.textSecondary} />
+            <Text style={styles.locText} numberOfLines={1}>{locationText}</Text>
+          </View>
+          <Text style={styles.priceText}>
+            ₹{hotel.pricePerNight.toLocaleString("en-IN")}
+            <Text style={styles.priceUnit}> /night</Text>
           </Text>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: "#fff",
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 16,
+    paddingHorizontal: rs(20),
+    paddingBottom: rs(20),
   },
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-  greeting: {
-    fontSize: 14,
+  locationBlock: {},
+  locationLabel: {
+    fontSize: rf(12),
     color: Colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: rs(4),
   },
-  headline: {
-    fontSize: 26,
-    fontWeight: "800" as const,
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: rs(6),
+    minHeight: MIN_TOUCH,
+    justifyContent: "center",
+  },
+  locationText: {
+    fontSize: rf(15),
+    fontWeight: "600" as const,
     color: Colors.text,
-    letterSpacing: -0.5,
   },
   notifButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.surfaceElevated,
+    width: Math.max(rs(44), MIN_TOUCH),
+    height: Math.max(rs(44), MIN_TOUCH),
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
   },
   badge: {
     position: "absolute",
-    top: 6,
-    right: 6,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    top: rs(4),
+    right: rs(4),
+    minWidth: rs(18),
+    height: rs(18),
+    borderRadius: rs(9),
     backgroundColor: Colors.error,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: rs(4),
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: rf(10),
     fontWeight: "700" as const,
     color: "#fff",
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: rs(12),
+    marginTop: rs(16),
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: rs(14),
+    paddingHorizontal: rs(14),
+    paddingVertical: Platform.OS === "ios" ? rs(12) : rs(10),
+    gap: rs(10),
+  },
+  searchPlaceholder: {
+    fontSize: rf(15),
+    color: Colors.textTertiary,
+  },
+  filterButton: {
+    width: Math.max(rs(48), MIN_TOUCH),
+    height: Math.max(rs(48), MIN_TOUCH),
+    borderRadius: rs(14),
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 14,
+    paddingHorizontal: rs(20),
+    marginBottom: rs(14),
   },
   sectionTitle: {
-    fontSize: 19,
+    fontSize: rf(18),
     fontWeight: "700" as const,
     color: Colors.text,
   },
   seeAll: {
-    fontSize: 14,
+    fontSize: rf(14),
     fontWeight: "600" as const,
     color: Colors.primary,
   },
-  destinationsRow: {
-    paddingHorizontal: 20,
+  recommendedRow: {
+    paddingHorizontal: rs(20),
+    gap: RECOMMENDED_CARD_GAP,
+    paddingBottom: rs(8),
   },
-  featuredRow: {
-    paddingHorizontal: 20,
-    gap: 14,
+  recommendedPlaceholder: {
+    width: RECOMMENDED_CARD_WIDTH,
+    height: rs(140),
+    justifyContent: "center",
+    alignItems: "center",
+    gap: rs(8),
   },
-  featuredCard: {
-    width: 280,
-    height: 200,
-    borderRadius: 20,
+  recommendedPlaceholderText: {
+    fontSize: rf(13),
+    color: Colors.textSecondary,
+  },
+  recommendedCard: {
+    width: RECOMMENDED_CARD_WIDTH,
+    backgroundColor: Colors.card,
+    borderRadius: rs(16),
     overflow: "hidden",
-    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: rs(12),
+    elevation: 4,
   },
-  featuredImage: {
+  recommendedImage: {
     width: "100%",
-    height: "100%",
+    height: rs(140),
+    backgroundColor: Colors.surfaceElevated,
   },
-  featuredGradient: {
+  discountBadge: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
+    top: rs(12),
+    left: rs(12),
+    backgroundColor: Colors.primary + "30",
+    paddingHorizontal: rs(8),
+    paddingVertical: rs(4),
+    borderRadius: rs(8),
   },
-  featuredHeart: {
+  discountText: {
+    fontSize: rf(11),
+    fontWeight: "700" as const,
+    color: Colors.primary,
+  },
+  heartButton: {
     position: "absolute",
-    top: 12,
-    right: 12,
-  },
-  heartCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    top: rs(12),
+    right: rs(12),
+    minWidth: MIN_TOUCH,
+    minHeight: MIN_TOUCH,
     alignItems: "center",
     justifyContent: "center",
   },
-  featuredInfo: {
-    position: "absolute",
-    bottom: 14,
-    left: 14,
-    right: 14,
+  heartCircle: {
+    width: rs(36),
+    height: rs(36),
+    borderRadius: rs(18),
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  featuredName: {
-    fontSize: 17,
+  recommendedInfo: {
+    padding: rs(12),
+  },
+  recommendedName: {
+    fontSize: rf(15),
     fontWeight: "700" as const,
-    color: "#fff",
-    marginBottom: 4,
+    color: Colors.text,
+    marginBottom: rs(6),
   },
-  featuredMeta: {
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginBottom: 8,
+    gap: rs(4),
+    marginBottom: rs(6),
   },
-  featuredLocation: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
-  },
-  featuredBottom: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  featuredRating: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  featuredRatingText: {
-    fontSize: 12,
+  ratingText: {
+    fontSize: rf(13),
     fontWeight: "600" as const,
-    color: "#fff",
+    color: Colors.text,
   },
-  featuredPrice: {
-    fontSize: 18,
+  locText: {
+    fontSize: rf(12),
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  priceText: {
+    fontSize: rf(16),
     fontWeight: "700" as const,
-    color: "#fff",
+    color: Colors.primary,
   },
-  featuredPriceUnit: {
-    fontSize: 12,
+  priceUnit: {
+    fontSize: rf(13),
     fontWeight: "400" as const,
+    color: Colors.textSecondary,
   },
-  hotelList: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    alignItems: "center",
+  nearbyList: {
+    paddingHorizontal: rs(20),
+    paddingBottom: rs(20),
   },
-  hotelCardWrapper: {
+  nearbyCard: {
+    backgroundColor: Colors.card,
+    borderRadius: rs(16),
+    overflow: "hidden",
+    marginBottom: rs(16),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: rs(12),
+    elevation: 4,
+  },
+  nearbyImageWrap: {
+    position: "relative",
+    height: rs(180),
+    backgroundColor: Colors.surfaceElevated,
+  },
+  nearbyImage: {
     width: "100%",
+    height: "100%",
+    backgroundColor: Colors.surfaceElevated,
+  },
+  nearbyInfo: {
+    padding: rs(14),
+  },
+  nearbyName: {
+    fontSize: rf(17),
+    fontWeight: "700" as const,
+    color: Colors.text,
+    marginBottom: rs(6),
+  },
+  emptyState: {
+    paddingVertical: rs(48),
     alignItems: "center",
+    gap: rs(12),
+  },
+  emptyTitle: {
+    fontSize: rf(18),
+    fontWeight: "700" as const,
+    color: Colors.text,
+  },
+  emptySub: {
+    fontSize: rf(14),
+    color: Colors.textSecondary,
   },
 });

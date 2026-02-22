@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, View, Text, FlatList, Pressable, Platform } from "react-native";
 import { Image } from "expo-image";
+import { getOptimizedImageUrl } from "@/lib/image-utils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
@@ -10,17 +11,23 @@ import { useApp } from "@/lib/app-context";
 import { Booking } from "@/lib/hotel-data";
 
 function BookingCard({ booking, index }: { booking: Booking; index: number }) {
-  const statusColor = {
-    confirmed: Colors.success,
-    completed: Colors.primary,
-    cancelled: Colors.error,
-  }[booking.status];
+  const statusColor = (
+    {
+      confirmed: Colors.success,
+      completed: Colors.primary,
+      cancelled: Colors.error,
+      pending: Colors.warning,
+    } as Record<string, string>
+  )[booking.status] ?? Colors.textSecondary;
 
-  const statusLabel = {
-    confirmed: "Confirmed",
-    completed: "Completed",
-    cancelled: "Cancelled",
-  }[booking.status];
+  const statusLabel = (
+    {
+      confirmed: "Confirmed",
+      completed: "Completed",
+      cancelled: "Cancelled",
+      pending: "Pending",
+    } as Record<string, string>
+  )[booking.status] ?? booking.status;
 
   const checkIn = new Date(booking.checkIn).toLocaleDateString("en-US", {
     month: "short",
@@ -36,9 +43,16 @@ function BookingCard({ booking, index }: { booking: Booking; index: number }) {
     <Animated.View entering={FadeInDown.delay(index * 80).duration(400)}>
       <Pressable
         style={styles.bookingCard}
-        onPress={() => router.push({ pathname: "/hotel/[id]", params: { id: booking.hotelId } })}
+        onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
       >
-        <Image source={{ uri: booking.hotelImage }} style={styles.bookingImage} contentFit="cover" transition={300} />
+        <Image
+          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") }}
+          style={styles.bookingImage}
+          contentFit="cover"
+          transition={150}
+          cachePolicy="memory-disk"
+          recyclingKey={`booking-${booking.id}`}
+        />
         <View style={styles.bookingInfo}>
           <View style={styles.bookingHeader}>
             <Text style={styles.bookingName} numberOfLines={1}>{booking.hotelName}</Text>
@@ -53,7 +67,7 @@ function BookingCard({ booking, index }: { booking: Booking; index: number }) {
           </View>
           <View style={styles.bookingBottom}>
             <Text style={styles.guestText}>{booking.guests} guests</Text>
-            <Text style={styles.bookingTotal}>${booking.totalPrice}</Text>
+            <Text style={styles.bookingTotal}>₹{Number(booking.totalPrice).toLocaleString("en-IN")}</Text>
           </View>
         </View>
       </Pressable>
@@ -63,8 +77,26 @@ function BookingCard({ booking, index }: { booking: Booking; index: number }) {
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
-  const { bookings } = useApp();
+  const { bookings, isAuthenticated } = useApp();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+
+  if (!isAuthenticated) {
+    return (
+      <View style={[styles.container, styles.empty]}>
+        <View style={[styles.header, { paddingTop: topInset + 12 }]}>
+          <Text style={styles.title}>My Bookings</Text>
+        </View>
+        <View style={styles.empty}>
+          <Ionicons name="calendar-outline" size={48} color={Colors.textTertiary} />
+          <Text style={styles.emptyTitle}>Sign in to view bookings</Text>
+          <Text style={styles.emptyText}>Your booking history will appear here</Text>
+          <Pressable style={styles.signInBtn} onPress={() => router.push("/auth/login")}>
+            <Text style={styles.signInBtnText}>Sign In</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -208,5 +240,17 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "center",
     paddingHorizontal: 40,
+  },
+  signInBtn: {
+    marginTop: 20,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  signInBtnText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: "#fff",
   },
 });

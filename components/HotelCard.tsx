@@ -1,16 +1,17 @@
 import React from "react";
-import { StyleSheet, View, Pressable, Text, Dimensions } from "react-native";
+import { StyleSheet, View, Pressable, Text } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
+import { rs, rf, MIN_TOUCH, SCREEN_WIDTH } from "@/constants/responsive";
 import { Hotel } from "@/lib/hotel-data";
 import { useApp } from "@/lib/app-context";
 import { router } from "expo-router";
+import { getOptimizedImageUrl } from "@/lib/image-utils";
 
-const { width } = Dimensions.get("window");
-const CARD_WIDTH = width - 40;
+const CARD_WIDTH = SCREEN_WIDTH - rs(40);
 
 interface HotelCardProps {
   hotel: Hotel;
@@ -37,25 +38,33 @@ export default function HotelCard({ hotel, index = 0, variant = "large" }: Hotel
     return (
       <Animated.View entering={FadeInDown.delay(index * 80).duration(400)}>
         <Pressable style={styles.compactCard} onPress={handlePress}>
-          <Image source={{ uri: hotel.images[0] }} style={styles.compactImage} contentFit="cover" transition={300} />
+          <Image
+            source={{ uri: getOptimizedImageUrl(hotel.images[0], "card") }}
+            style={styles.compactImage}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
+            priority={index < 4 ? "high" : "normal"}
+            recyclingKey={`card-${hotel.id}`}
+          />
           <View style={styles.compactInfo}>
             <Text style={styles.compactName} numberOfLines={1}>{hotel.name}</Text>
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={12} color={Colors.textSecondary} />
+              <Ionicons name="location-outline" size={rs(12)} color={Colors.textSecondary} />
               <Text style={styles.compactLocation} numberOfLines={1}>{hotel.location}</Text>
             </View>
             <View style={styles.compactBottom}>
               <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={11} color={Colors.star} />
+                <Ionicons name="star" size={rs(11)} color={Colors.star} />
                 <Text style={styles.ratingText}>{hotel.rating}</Text>
               </View>
-              <Text style={styles.compactPrice}>
-                ${hotel.pricePerNight}<Text style={styles.perNight}>/night</Text>
+                <Text style={styles.compactPrice}>
+                ₹{hotel.pricePerNight.toLocaleString("en-IN")}<Text style={styles.perNight}>/night</Text>
               </Text>
             </View>
           </View>
           <Pressable style={styles.compactHeart} onPress={handleFavorite} hitSlop={8}>
-            <Ionicons name={saved ? "heart" : "heart-outline"} size={18} color={saved ? Colors.error : Colors.textSecondary} />
+            <Ionicons name={saved ? "heart" : "heart-outline"} size={rs(18)} color={saved ? Colors.error : Colors.textSecondary} />
           </Pressable>
         </Pressable>
       </Animated.View>
@@ -66,7 +75,15 @@ export default function HotelCard({ hotel, index = 0, variant = "large" }: Hotel
     <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
       <Pressable style={styles.card} onPress={handlePress}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: hotel.images[0] }} style={styles.image} contentFit="cover" transition={300} />
+          <Image
+            source={{ uri: getOptimizedImageUrl(hotel.images[0], "card") }}
+            style={styles.image}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
+            priority={index < 3 ? "high" : "normal"}
+            recyclingKey={`card-${hotel.id}`}
+          />
           {discount > 0 && (
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>{discount}% OFF</Text>
@@ -74,7 +91,7 @@ export default function HotelCard({ hotel, index = 0, variant = "large" }: Hotel
           )}
           <Pressable style={styles.heartButton} onPress={handleFavorite} hitSlop={8}>
             <View style={styles.heartBg}>
-              <Ionicons name={saved ? "heart" : "heart-outline"} size={20} color={saved ? Colors.error : "#fff"} />
+              <Ionicons name={saved ? "heart" : "heart-outline"} size={rs(20)} color={saved ? Colors.error : "#fff"} />
             </View>
           </Pressable>
         </View>
@@ -82,20 +99,20 @@ export default function HotelCard({ hotel, index = 0, variant = "large" }: Hotel
           <View style={styles.nameRow}>
             <Text style={styles.name} numberOfLines={1}>{hotel.name}</Text>
             <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color={Colors.star} />
+              <Ionicons name="star" size={rs(14)} color={Colors.star} />
               <Text style={styles.rating}>{hotel.rating}</Text>
               <Text style={styles.reviewCount}>({hotel.reviewCount})</Text>
             </View>
           </View>
           <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color={Colors.textSecondary} />
+            <Ionicons name="location-outline" size={rs(14)} color={Colors.textSecondary} />
             <Text style={styles.location}>{hotel.location}</Text>
           </View>
           <View style={styles.priceRow}>
-            <Text style={styles.price}>${hotel.pricePerNight}</Text>
+            <Text style={styles.price}>₹{hotel.pricePerNight.toLocaleString("en-IN")}</Text>
             <Text style={styles.perNight}>/night</Text>
             {hotel.originalPrice > hotel.pricePerNight && (
-              <Text style={styles.originalPrice}>${hotel.originalPrice}</Text>
+              <Text style={styles.originalPrice}>₹{hotel.originalPrice.toLocaleString("en-IN")}</Text>
             )}
           </View>
         </View>
@@ -108,18 +125,18 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     backgroundColor: Colors.card,
-    borderRadius: 20,
+    borderRadius: rs(20),
     overflow: "hidden",
-    marginBottom: 20,
+    marginBottom: rs(20),
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: rs(4) },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowRadius: rs(12),
     elevation: 4,
   },
   imageContainer: {
     width: "100%",
-    height: 200,
+    height: rs(200),
     position: "relative",
   },
   image: {
@@ -128,35 +145,35 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: rs(12),
+    left: rs(12),
     backgroundColor: Colors.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: rs(10),
+    paddingVertical: rs(4),
+    borderRadius: rs(8),
   },
   discountText: {
     color: "#fff",
-    fontSize: 11,
+    fontSize: rf(11),
     fontWeight: "700" as const,
     letterSpacing: 0.3,
   },
   heartButton: {
     position: "absolute",
-    top: 12,
-    right: 12,
+    top: rs(12),
+    right: rs(12),
   },
   heartBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: Math.max(rs(36), MIN_TOUCH),
+    height: Math.max(rs(36), MIN_TOUCH),
+    borderRadius: rs(18),
     backgroundColor: "rgba(0,0,0,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
   info: {
-    padding: 16,
-    gap: 6,
+    padding: rs(16),
+    gap: rs(6),
   },
   nameRow: {
     flexDirection: "row",
@@ -164,86 +181,86 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   name: {
-    fontSize: 17,
+    fontSize: rf(17),
     fontWeight: "700" as const,
     color: Colors.text,
     flex: 1,
-    marginRight: 8,
+    marginRight: rs(8),
   },
   ratingRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: rs(3),
   },
   rating: {
-    fontSize: 14,
+    fontSize: rf(14),
     fontWeight: "600" as const,
     color: Colors.text,
   },
   reviewCount: {
-    fontSize: 12,
+    fontSize: rf(12),
     color: Colors.textSecondary,
   },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: rs(4),
   },
   location: {
-    fontSize: 13,
+    fontSize: rf(13),
     color: Colors.textSecondary,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 2,
-    marginTop: 4,
+    gap: rs(2),
+    marginTop: rs(4),
   },
   price: {
-    fontSize: 20,
+    fontSize: rf(20),
     fontWeight: "800" as const,
     color: Colors.primary,
   },
   perNight: {
-    fontSize: 13,
+    fontSize: rf(13),
     color: Colors.textSecondary,
   },
   originalPrice: {
-    fontSize: 14,
+    fontSize: rf(14),
     color: Colors.textTertiary,
     textDecorationLine: "line-through",
-    marginLeft: 6,
+    marginLeft: rs(6),
   },
   compactCard: {
     flexDirection: "row",
     backgroundColor: Colors.card,
-    borderRadius: 16,
+    borderRadius: rs(16),
     overflow: "hidden",
-    marginBottom: 12,
+    marginBottom: rs(12),
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: rs(2) },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowRadius: rs(8),
     elevation: 2,
     position: "relative",
   },
   compactImage: {
-    width: 100,
-    height: 100,
+    width: rs(100),
+    height: rs(100),
   },
   compactInfo: {
     flex: 1,
-    padding: 12,
+    padding: rs(12),
     justifyContent: "space-between",
   },
   compactName: {
-    fontSize: 15,
+    fontSize: rf(15),
     fontWeight: "700" as const,
     color: Colors.text,
-    paddingRight: 28,
+    paddingRight: rs(28),
   },
   compactLocation: {
-    fontSize: 12,
+    fontSize: rf(12),
     color: Colors.textSecondary,
     flex: 1,
   },
@@ -255,25 +272,25 @@ const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: rs(3),
     backgroundColor: Colors.surfaceElevated,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: rs(6),
+    paddingVertical: rs(2),
+    borderRadius: rs(6),
   },
   ratingText: {
-    fontSize: 12,
+    fontSize: rf(12),
     fontWeight: "600" as const,
     color: Colors.text,
   },
   compactPrice: {
-    fontSize: 15,
+    fontSize: rf(15),
     fontWeight: "700" as const,
     color: Colors.primary,
   },
   compactHeart: {
     position: "absolute",
-    top: 10,
-    right: 10,
+    top: rs(10),
+    right: rs(10),
   },
 });

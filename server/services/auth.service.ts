@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "../db";
-import { users } from "@shared/schema";
+import { users, transactions, bookings, reviews } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "stayease-jwt-secret-2025";
@@ -27,7 +27,7 @@ export class AuthService {
       throw new Error("Username already taken");
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 12);
+    const hashedPassword = await bcrypt.hash(data.password, 10);
 
     const [user] = await db.insert(users).values({
       email: data.email,
@@ -124,9 +124,90 @@ export class AuthService {
     return this.sanitizeUser(user);
   }
 
-  static async updateProfile(userId: string, data: Partial<{ name: string; phone: string; avatar: string }>) {
+  static async updateProfile(userId: string, data: Partial<{ name: string; phone: string; avatar: string; gender: string }>) {
     const [user] = await db.update(users).set({ ...data, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    if (!user) throw new Error("User not found");
     return this.sanitizeUser(user);
+  }
+
+  static async topUpWallet(userId: string, amount: number) {
+    if (amount <= 0 || !Number.isFinite(amount)) throw new Error("Invalid amount");
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) throw new Error("User not found");
+    const current = Number(user.walletBalance ?? 0);
+    const newBalance = current + amount;
+    await db.update(users).set({ walletBalance: newBalance, updatedAt: new Date() }).where(eq(users.id, userId));
+    await db.insert(transactions).values({
+      userId,
+      amount: amount,
+      type: "topup",
+      status: "completed",
+      paymentGateway: "wallet",
+    });
+    return { balance: newBalance };
+  }
+
+  static async forgotPassword(email: string) {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user) throw new Error("User not found");
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    await db.update(users).set({ otpCode: otp, otpExpiry: expiry, otpPurpose: "reset" }).where(eq(users.id, user.id));
+    console.log(`[Reset OTP] Code for ${email}: ${otp}`);
+    return { message: "OTP sent to your email", otp: process.env.NODE_ENV === "development" ? otp : undefined };
+  }
+
+  static async verifyResetOtp(email: string, otp: string) {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user) throw new Error("User not found");
+    if (user.otpPurpose !== "reset" || !user.otpCode || !user.otpExpiry) throw new Error("No reset OTP requested");
+    if (new Date() > user.otpExpiry) throw new Error("OTP expired");
+    if (user.otpCode !== otp) throw new Error("Invalid OTP");
+    await db.update(users).set({ otpCode: null, otpExpiry: null, otpPurpose: null }).where(eq(users.id, user.id));
+    const resetToken = jwt.sign(
+      { email: user.email, purpose: "password_reset" },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+    return { resetToken };
+  }
+
+  static async resetPassword(resetToken: string, newPassword: string) {
+    try {
+      const payload = jwt.verify(resetToken, JWT_SECRET) as { email: string; purpose: string };
+      if (payload.purpose !== "password_reset") throw new Error("Invalid token");
+      const [user] = await db.select().from(users).where(eq(users.email, payload.email)).limit(1);
+      if (!user) throw new Error("User not found");
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.id, user.id));
+      return { message: "Password updated" };
+    } catch (e: any) {
+      if (e.name === "TokenExpiredError") throw new Error("Reset link expired");
+      throw e;
+    }
+  }
+
+  static async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) throw new Error("User not found");
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) throw new Error("Current password is incorrect");
+    if (newPassword.length < 6) throw new Error("New password must be at least 6 characters");
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.update(users).set({ password: hashedPassword, updatedAt: new Date() }).where(eq(users.id, userId));
+    return { message: "Password updated" };
+  }
+
+  static async deleteAccount(userId: string, password: string) {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) throw new Error("User not found");
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new Error("Invalid password");
+    await db.delete(transactions).where(eq(transactions.userId, userId));
+    await db.delete(bookings).where(eq(bookings.userId, userId));
+    await db.delete(reviews).where(eq(reviews.userId, userId));
+    await db.delete(users).where(eq(users.id, userId));
+    return { message: "Account deleted" };
   }
 
   static verifyAccessToken(token: string): TokenPayload {
@@ -147,7 +228,7 @@ export class AuthService {
   }
 
   private static sanitizeUser(user: typeof users.$inferSelect) {
-    const { password, refreshToken, otpCode, otpExpiry, ...safe } = user;
+    const { password, refreshToken, otpCode, otpExpiry, otpPurpose, ...safe } = user;
     return safe;
   }
 }

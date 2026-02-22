@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -34,7 +35,20 @@ function setupCors(app: express.Application) {
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");
 
-    if (origin && (origins.has(origin) || isLocalhost)) {
+    // Allow LAN IPs (physical device connecting to PC backend)
+    const isLocalOrPrivate =
+      origin?.startsWith("http://192.168.") ||
+      origin?.startsWith("http://10.") ||
+      origin?.startsWith("http://172.16.") ||
+      origin?.startsWith("http://172.17.") ||
+      origin?.startsWith("http://172.18.") ||
+      origin?.startsWith("http://172.19.") ||
+      /^http:\/\/172\.(2[0-9]|30|31)\./.test(origin || "");
+
+    // Native apps often send no Origin - allow request to proceed
+    const shouldAllow = !origin || origins.has(origin) || isLocalhost || isLocalOrPrivate;
+
+    if (shouldAllow && origin) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
