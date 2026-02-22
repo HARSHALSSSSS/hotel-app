@@ -39,6 +39,7 @@ export interface Review {
   comment: string;
   date: string;
   avatar: string;
+  images?: string[];
 }
 
 export interface Booking {

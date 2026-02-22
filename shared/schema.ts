@@ -112,6 +112,7 @@ export const reviews = pgTable("reviews", {
   bookingId: varchar("booking_id").references(() => bookings.id),
   rating: real("rating").notNull(),
   comment: text("comment").notNull(),
+  images: jsonb("images").$type<string[]>().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("reviews_hotel_id_idx").on(table.hotelId),
@@ -216,6 +217,7 @@ export const createReviewSchema = z.object({
   rating: z.number().min(1).max(5),
   comment: z.string().min(5),
   bookingId: z.string().optional(),
+  images: z.array(z.string()).optional().default([]),
 });
 
 export type User = typeof users.$inferSelect;

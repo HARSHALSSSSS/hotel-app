@@ -70,6 +70,7 @@ export class HotelService {
       id: reviews.id,
       rating: reviews.rating,
       comment: reviews.comment,
+      images: reviews.images,
       createdAt: reviews.createdAt,
       userId: reviews.userId,
       userName: users.name,

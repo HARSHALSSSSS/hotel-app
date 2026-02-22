@@ -9,11 +9,13 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { rs, rf } from "@/constants/responsive";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { formatPrice } from "@/lib/format-price";
 import { BarcodeSvg } from "@/components/BarcodeSvg";
 
 export default function ReceiptScreen() {
@@ -46,8 +48,16 @@ export default function ReceiptScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setDownloading(true);
     try {
-      const { default: Print } = await import("expo-print");
-      const { shareAsync } = await import("expo-sharing");
+      if (Platform.OS === "web") {
+        Alert.alert("Download", "Use your browser's Print (Ctrl+P) to save as PDF, or take a screenshot to save the receipt.");
+        setDownloading(false);
+        return;
+      }
+      const Print = await import("expo-print").then((m) => m.default ?? m);
+      const Sharing = await import("expo-sharing").then((m) => m.default ?? m);
+      if (typeof Print?.printToFileAsync !== "function") {
+        throw new Error("PDF generation is not supported. Take a screenshot to save the receipt.");
+      }
 
       const html = `
 <!DOCTYPE html>
@@ -73,9 +83,9 @@ export default function ReceiptScreen() {
   <div class="row"><span class="label">Check Out</span><span class="value">${checkOutStr}</span></div>
   <div class="row"><span class="label">Guest</span><span class="value">${params.guests || ""} Person</span></div>
   <hr>
-  <div class="row"><span class="label">Amount</span><span class="value">₹${params.amount || "0.00"}</span></div>
-  <div class="row"><span class="label">Tax & Fees</span><span class="value">₹${params.taxesAndFees || "0.00"}</span></div>
-  <div class="row total"><span class="label">Total</span><span class="value">₹${params.total || "0.00"}</span></div>
+  <div class="row"><span class="label">Amount</span><span class="value">₹${String(params.amount || "0").replace(/,/g, "")}</span></div>
+  <div class="row"><span class="label">Tax & Fees</span><span class="value">₹${String(params.taxesAndFees || "0").replace(/,/g, "")}</span></div>
+  <div class="row total"><span class="label">Total</span><span class="value">₹${String(params.total || "0").replace(/,/g, "")}</span></div>
   <hr>
   <div class="row"><span class="label">Name</span><span class="value">${params.guestName || ""}</span></div>
   <div class="row"><span class="label">Phone Number</span><span class="value">${params.guestPhone || ""}</span></div>
@@ -84,7 +94,7 @@ export default function ReceiptScreen() {
 </html>`;
 
       const { uri } = await Print.printToFileAsync({ html });
-      await shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Save E-Receipt" });
+      await Sharing?.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Save E-Receipt" });
     } catch (e: any) {
       if (e?.message?.includes("shareAsync") || e?.code === "E_UNSUPPORTED") {
         Alert.alert("Download", "Sharing is not available on this device. You can take a screenshot to save the receipt.");
@@ -137,15 +147,15 @@ export default function ReceiptScreen() {
         <Text style={styles.sectionTitle}>Payment Summary</Text>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount</Text>
-          <Text style={styles.detailValue}>${params.amount ?? "0.00"}</Text>
+          <Text style={styles.detailValue}>{formatPrice(parseFloat(String(params.amount ?? "0").replace(/,/g, "")) || 0)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Tax & Fees</Text>
-          <Text style={styles.detailValue}>${params.taxesAndFees ?? "0.00"}</Text>
+          <Text style={styles.detailValue}>{formatPrice(parseFloat(String(params.taxesAndFees ?? "0").replace(/,/g, "")) || 0)}</Text>
         </View>
         <View style={[styles.detailRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>${params.total ?? "0.00"}</Text>
+          <Text style={styles.totalValue}>{formatPrice(parseFloat(String(params.total ?? "0").replace(/,/g, "")) || 0)}</Text>
         </View>
 
         <View style={styles.divider} />
@@ -158,9 +168,9 @@ export default function ReceiptScreen() {
           <Text style={styles.detailLabel}>Phone Number</Text>
           <Text style={styles.detailValue}>{params.guestPhone}</Text>
         </View>
-        <View style={styles.detailRow}>
+        <View style={styles.transactionRow}>
           <Text style={styles.detailLabel}>Transaction ID</Text>
-          <Text style={styles.detailValue}>{transactionId}</Text>
+          <Text style={styles.transactionIdValue} selectable>{transactionId}</Text>
         </View>
       </ScrollView>
 
@@ -188,9 +198,11 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingTop: 24 },
   barcodeWrap: { alignItems: "center", marginBottom: 28 },
   sectionTitle: { fontSize: 14, fontWeight: "700" as const, color: Colors.text, marginBottom: 12 },
-  detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  detailLabel: { fontSize: 14, color: Colors.textSecondary },
-  detailValue: { fontSize: 14, fontWeight: "600" as const, color: Colors.text },
+  detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 12 },
+  detailLabel: { fontSize: 14, color: Colors.textSecondary, flexShrink: 0, minWidth: 120 },
+  detailValue: { fontSize: 14, fontWeight: "600" as const, color: Colors.text, flex: 1, textAlign: "right" as const },
+  transactionRow: { flexDirection: "column", marginBottom: 10, gap: 4 },
+  transactionIdValue: { fontSize: 13, fontWeight: "600" as const, color: Colors.text, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
   divider: { height: 1, backgroundColor: Colors.borderLight, marginVertical: 20 },
   totalRow: { marginTop: 4 },
   totalLabel: { fontSize: 16, fontWeight: "800" as const, color: Colors.text },

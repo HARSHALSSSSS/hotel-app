@@ -31,6 +31,7 @@ function normalizeHotels(list: any[]): HotelListItem[] {
 const LOCATION_DISPLAY_KEY = "@stayease_location_display";
 const LOCATION_PROMPT_SEEN_KEY = "@stayease_location_prompt_seen";
 const ONBOARDING_COMPLETE_KEY = "@stayease_onboarding_complete";
+const HOTELS_CACHE_KEY = "@stayease_hotels_cache";
 
 export interface HotelListItem {
   id: string;
@@ -87,6 +88,7 @@ interface AppContextValue {
   notifications: NotificationItem[];
   unreadCount: number;
   isLoading: boolean;
+  hotelsLoading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, username: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -109,7 +111,7 @@ interface AppContextValue {
   updateUserProfile: (data: Partial<{ name: string; phone: string; avatar: string }>) => Promise<void>;
   fetchNearbyHotels: (lat: number, lng: number, radiusKm?: number) => Promise<HotelListItem[]>;
   getBookingById: (id: string) => Promise<BookingItem | null>;
-  createReview: (data: { hotelId: string; rating: number; comment: string; bookingId?: string }) => Promise<void>;
+  createReview: (data: { hotelId: string; rating: number; comment: string; bookingId?: string; images?: string[] }) => Promise<void>;
   refreshUser: () => Promise<void>;
   topUpWallet: (amount: number) => Promise<{ balance: number }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -142,6 +144,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hotelsLoading, setHotelsLoading] = useState(true);
   const [exploreLocation, setExploreLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [exploreQuery, setExploreQuery] = useState("");
   const [searchFilters, setSearchFilters] = useState({
@@ -209,24 +212,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    const INIT_TIMEOUT_MS = 8_000;
+    const INIT_TIMEOUT_MS = 5_000;
 
     const timeout = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error("Init timeout")), ms));
 
     (async () => {
-      const fetchHotels = async (): Promise<HotelListItem[]> => {
-        try {
-          const res = await authFetch("/api/hotels");
-          const data = res.ok ? await res.json() : [];
-          const list = Array.isArray(data) ? data : [];
-          return normalizeHotels(list);
-        } catch {
-          return [];
-        }
-      };
-
-      const hotelsPromise = fetchHotels();
-
       try {
         const [u, locData, locDisplayData, seenData, onboardingData] = await Promise.race([
           Promise.all([
@@ -254,41 +244,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (u) {
           setUser(u);
-          try {
-            const [favsRes, bookingsRes, notifsRes, savedHotelsRes] = await Promise.race([
-              Promise.all([
-                authFetch("/api/favorites").then((r) => r.ok ? r.json() : []),
-                authFetch("/api/bookings").then((r) => r.ok ? r.json() : []),
-                authFetch("/api/notifications").then((r) => r.ok ? r.json() : []),
-                authFetch("/api/favorites/hotels").then((r) => r.ok ? r.json() : []),
-              ]),
-              timeout(INIT_TIMEOUT_MS),
-            ]);
-            setFavorites(favsRes || []);
-            setBookings(bookingsRes || []);
-            setNotifications(notifsRes || []);
-            setSavedHotels(savedHotelsRes || []);
-          } catch {}
+          Promise.all([
+            authFetch("/api/favorites").then((r) => r.ok ? r.json() : []),
+            authFetch("/api/bookings").then((r) => r.ok ? r.json() : []),
+            authFetch("/api/notifications").then((r) => r.ok ? r.json() : []),
+            authFetch("/api/favorites/hotels").then((r) => r.ok ? r.json() : []),
+          ])
+            .then(([favsRes, bookingsRes, notifsRes, savedHotelsRes]) => {
+              setFavorites(favsRes || []);
+              setBookings(bookingsRes || []);
+              setNotifications(notifsRes || []);
+              setSavedHotels(savedHotelsRes || []);
+            })
+            .catch(() => {});
         }
       } catch (e) {
         console.log("Init error:", e);
       }
 
-      let normalized = await hotelsPromise;
-      if (normalized.length === 0) normalized = await fetchHotels();
-      setHotels(normalized);
-      if (normalized.length > 0) {
-        const { getOptimizedImageUrl, FALLBACK_HOTEL_IMAGE } = await import("@/lib/image-utils");
-        const urls = normalized
-          .slice(0, 35)
-          .map((h) => getOptimizedImageUrl(h?.images?.[0], "card"))
-          .filter(Boolean) as string[];
-        const uniqueUrls = [...new Set([FALLBACK_HOTEL_IMAGE, ...urls])];
-        Image.prefetch(uniqueUrls, "memory-disk").catch(() => {});
-      }
-
       setIsLoading(false);
       SplashScreen.hideAsync().catch(() => {});
+
+      const cachedRaw = await AsyncStorage.getItem(HOTELS_CACHE_KEY);
+      if (cachedRaw) {
+        try {
+          const cached = JSON.parse(cachedRaw) as HotelListItem[];
+          if (Array.isArray(cached) && cached.length > 0) {
+            setHotels(cached);
+            setHotelsLoading(false);
+          }
+        } catch {}
+      }
+
+      const fetchHotels = async (): Promise<HotelListItem[]> => {
+        try {
+          const res = await authFetch("/api/hotels");
+          const data = res.ok ? await res.json() : [];
+          const list = Array.isArray(data) ? data : [];
+          return normalizeHotels(list);
+        } catch {
+          return [];
+        }
+      };
+
+      let normalized = await fetchHotels();
+      const retryDelays = [1500, 3000, 5000];
+      for (let i = 0; i < retryDelays.length && normalized.length === 0; i++) {
+        await new Promise((r) => setTimeout(r, retryDelays[i]));
+        normalized = await fetchHotels();
+      }
+      if (normalized.length > 0) {
+        setHotels(normalized);
+      }
+      setHotelsLoading(false);
+      if (normalized.length > 0) {
+        try {
+          await AsyncStorage.setItem(HOTELS_CACHE_KEY, JSON.stringify(normalized));
+        } catch {}
+        import("@/lib/image-utils").then(({ getOptimizedImageUrl, FALLBACK_HOTEL_IMAGE }) => {
+          const urls = normalized
+            .slice(0, 35)
+            .map((h) => getOptimizedImageUrl(h?.images?.[0], "card"))
+            .filter(Boolean) as string[];
+          const uniqueUrls = [...new Set([FALLBACK_HOTEL_IMAGE, ...urls])];
+          Image.prefetch(uniqueUrls, "memory-disk").catch(() => {});
+        });
+      }
     })();
   }, []);
 
@@ -415,6 +436,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const hotelsList = Array.isArray(data) ? data : [];
       const normalized = normalizeHotels(hotelsList);
       setHotels(normalized);
+      if (normalized.length > 0) {
+        AsyncStorage.setItem(HOTELS_CACHE_KEY, JSON.stringify(normalized)).catch(() => {});
+      }
       const { getOptimizedImageUrl, FALLBACK_HOTEL_IMAGE } = await import("@/lib/image-utils");
       const urls = normalized.slice(0, 35).map((h) => getOptimizedImageUrl(h?.images?.[0], "card")).filter(Boolean) as string[];
       const uniqueUrls = [...new Set([FALLBACK_HOTEL_IMAGE, ...urls])];
@@ -625,7 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const createReview = useCallback(async (data: { hotelId: string; rating: number; comment: string; bookingId?: string }) => {
+  const createReview = useCallback(async (data: { hotelId: string; rating: number; comment: string; bookingId?: string; images?: string[] }) => {
     const res = await authFetch("/api/reviews", {
       method: "POST",
       body: JSON.stringify(data),
@@ -652,6 +676,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notifications,
       unreadCount,
       isLoading,
+      hotelsLoading,
       login,
       register: registerFn,
       logout,
@@ -695,7 +720,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       incomingCall,
       setIncomingCall,
     }),
-    [user, isAuthenticated, hotels, featuredHotels, favorites, savedHotels, bookings, notifications, unreadCount, isLoading, login, registerFn, logout, toggleFavorite, isFavorite, markNotificationRead, markAllNotificationsRead, refreshHotels, refreshBookings, refreshNotifications, refreshSavedHotels, createBooking, createBookingWithRazorpay, cancelBooking, getHotelById, searchHotels, requestOtp, loginWithOtp, updateUserProfile, fetchNearbyHotels, getBookingById, createReview, refreshUser, topUpWallet, changePassword, deleteAccount, exploreLocation, exploreQuery, searchFilters, userLocation, setUserLocation, locationDisplayName, setLocationDisplayName, hasSeenLocationPrompt, setHasSeenLocationPrompt, hasCompletedOnboarding, completeOnboarding, incomingCall, setIncomingCall]
+    [user, isAuthenticated, hotels, featuredHotels, favorites, savedHotels, bookings, notifications, unreadCount, isLoading, hotelsLoading, login, registerFn, logout, toggleFavorite, isFavorite, markNotificationRead, markAllNotificationsRead, refreshHotels, refreshBookings, refreshNotifications, refreshSavedHotels, createBooking, createBookingWithRazorpay, cancelBooking, getHotelById, searchHotels, requestOtp, loginWithOtp, updateUserProfile, fetchNearbyHotels, getBookingById, createReview, refreshUser, topUpWallet, changePassword, deleteAccount, exploreLocation, exploreQuery, searchFilters, userLocation, setUserLocation, locationDisplayName, setLocationDisplayName, hasSeenLocationPrompt, setHasSeenLocationPrompt, hasCompletedOnboarding, completeOnboarding, incomingCall, setIncomingCall]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

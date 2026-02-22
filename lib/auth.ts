@@ -3,7 +3,7 @@ import { getApiUrl } from "./query-client";
 import { fetch } from "expo/fetch";
 
 const TOKEN_KEY = "@stayease_access_token";
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 20_000;
 
 /** Fetch with timeout to prevent infinite loading when API is unreachable */
 async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
@@ -84,13 +84,13 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
     headers["Content-Type"] = "application/json";
   }
 
-  let res = await fetch(url, { ...options, headers });
+  let res = await fetchWithTimeout(url, { ...options, headers });
 
   if (res.status === 401 && token) {
     const refreshed = await refreshTokens();
     if (refreshed) {
       headers["Authorization"] = `Bearer ${cachedToken}`;
-      res = await fetch(url, { ...options, headers });
+      res = await fetchWithTimeout(url, { ...options, headers });
     }
   }
 
@@ -103,7 +103,7 @@ async function refreshTokens(): Promise<boolean> {
     if (!refreshToken) return false;
 
     const baseUrl = getApiUrl();
-    const res = await fetch(new URL("/api/auth/refresh", baseUrl).toString(), {
+    const res = await fetchWithTimeout(new URL("/api/auth/refresh", baseUrl).toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),

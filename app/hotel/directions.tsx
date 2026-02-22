@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  BackHandler,
 } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -78,6 +79,13 @@ export default function HotelDirectionsScreen() {
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const goBackToLocation = () => {
+    router.replace({
+      pathname: "/hotel/location",
+      params: { hotelId, hotelName, latitude: params.latitude ?? "", longitude: params.longitude ?? "", address: address || undefined },
+    });
+  };
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -301,7 +309,7 @@ export default function HotelDirectionsScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={goBackToLocation}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Get Direction</Text>
@@ -330,7 +338,7 @@ export default function HotelDirectionsScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={goBackToLocation}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Get Direction</Text>
@@ -367,7 +375,7 @@ export default function HotelDirectionsScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={goBackToLocation}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Get Direction</Text>
@@ -530,7 +538,7 @@ export default function HotelDirectionsScreen() {
     }
     setHasStarted(false);
     setIsNavigating(false);
-    router.back();
+    goBackToLocation();
   };
 
   const handleBack = () => {
@@ -548,6 +556,15 @@ export default function HotelDirectionsScreen() {
       performBack();
     }
   };
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [hasStarted, handleBack]);
 
   return (
     <View style={styles.container}>

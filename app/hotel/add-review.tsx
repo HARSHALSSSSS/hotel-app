@@ -10,16 +10,19 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
+  ActionSheetIOS,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { Image as ExpoImage } from "expo-image";
 import Colors from "@/constants/colors";
 import { rs, rf, MIN_TOUCH } from "@/constants/responsive";
 import { useApp } from "@/lib/app-context";
-import { authFetch } from "@/lib/auth";
+import { authFetch, getToken } from "@/lib/auth";
+import { getApiUrl } from "@/lib/query-client";
 
 export default function AddReviewScreen() {
   const params = useLocalSearchParams<{ hotelId: string; bookingId?: string }>();
@@ -43,8 +46,11 @@ export default function AddReviewScreen() {
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+  const MAX_PHOTOS = 5;
 
   useEffect(() => {
     if (!hotelId) {
@@ -94,6 +100,109 @@ export default function AddReviewScreen() {
     })();
   }, [hotelId, getHotelById]);
 
+  const uploadImage = async (uri: string): Promise<string> => {
+    const token = await getToken();
+    const baseUrl = getApiUrl();
+    const ext = uri.split(".").pop()?.toLowerCase() || "jpg";
+    const mime = ext === "png" ? "image/png" : "image/jpeg";
+    const formData = new FormData();
+    formData.append("file", { uri, type: mime, name: `review-${Date.now()}.${ext}` } as any);
+    const res = await fetch(`${baseUrl}/api/upload`, {
+      method: "POST",
+      headers: { Authorization: token ? `Bearer ${token}` : "" },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || "Upload failed");
+    }
+    const { url } = await res.json();
+    return url.startsWith("http") ? url : `${baseUrl.replace(/\/$/, "")}${url.startsWith("/") ? "" : "/"}${url}`;
+  };
+
+  const pickFromDevice = async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Add Photo", "Photo upload is best experienced on the mobile app.");
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow access to your photos to add images to your review.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setUploadingPhoto(true);
+      try {
+        const url = await uploadImage(result.assets[0].uri);
+        setPhotoUris((prev) => (prev.length < MAX_PHOTOS ? [...prev, url] : prev));
+      } catch (e) {
+        Alert.alert("Upload failed", (e as Error)?.message || "Could not add photo.");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }
+  };
+
+  const takePhoto = async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Add Photo", "Camera is best experienced on the mobile app.");
+      return;
+    }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow access to the camera to take a photo.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setUploadingPhoto(true);
+      try {
+        const url = await uploadImage(result.assets[0].uri);
+        setPhotoUris((prev) => (prev.length < MAX_PHOTOS ? [...prev, url] : prev));
+      } catch (e) {
+        Alert.alert("Upload failed", (e as Error)?.message || "Could not add photo.");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }
+  };
+
+  const handleAddPhoto = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (photoUris.length >= MAX_PHOTOS) {
+      Alert.alert("Limit reached", `You can add up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+    if (uploadingPhoto) return;
+    if (Platform.OS === "ios" && typeof ActionSheetIOS !== "undefined" && ActionSheetIOS.showActionSheetWithOptions) {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ["Cancel", "Choose from gallery", "Take photo"], cancelButtonIndex: 0, title: "Add photo to review" },
+        (i) => { if (i === 1) pickFromDevice(); else if (i === 2) takePhoto(); }
+      );
+    } else {
+      Alert.alert("Add photo to review", "Choose a source", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Choose from gallery", onPress: pickFromDevice },
+        { text: "Take photo", onPress: takePhoto },
+      ]);
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPhotoUris((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!hotelId || !hotel) return;
     if (rating < 1) {
@@ -107,7 +216,7 @@ export default function AddReviewScreen() {
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await createReview({ hotelId, rating, comment: comment.trim(), bookingId });
+      await createReview({ hotelId, rating, comment: comment.trim(), bookingId, images: photoUris.length > 0 ? photoUris : undefined });
       Alert.alert("Thank you", "Your review has been submitted.", [
         { text: "OK", onPress: () => router.back() },
       ]);
@@ -178,7 +287,7 @@ export default function AddReviewScreen() {
             <Text style={styles.address}>{fullAddress}</Text>
             <View style={styles.divider} />
 
-            <Text style={styles.label}>Your overall rating of this product</Text>
+            <Text style={styles.label}>Your rating</Text>
             <View style={styles.starRow}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Pressable
@@ -203,7 +312,7 @@ export default function AddReviewScreen() {
               style={styles.textArea}
               value={comment}
               onChangeText={setComment}
-              placeholder="Enter here"
+              placeholder="Share your experience – what did you like? Any tips for other guests?"
               placeholderTextColor={Colors.textTertiary}
               multiline
               numberOfLines={5}
@@ -211,10 +320,34 @@ export default function AddReviewScreen() {
               editable={!submitting}
             />
 
-            <Pressable style={styles.addPhotoRow} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
-              <Ionicons name="camera-outline" size={rs(20)} color={Colors.primary} />
-              <Text style={styles.addPhotoText}>add photo</Text>
-            </Pressable>
+            <Text style={[styles.label, { marginTop: rs(20) }]}>Add photos (optional)</Text>
+            <Text style={styles.hint}>Add up to {MAX_PHOTOS} photos to make your review stand out.</Text>
+            <View style={styles.photoSection}>
+              {photoUris.map((uri, index) => (
+                <View key={uri} style={styles.photoThumbWrap}>
+                  <ExpoImage source={{ uri }} style={styles.photoThumb} contentFit="cover" />
+                  <Pressable style={styles.removePhotoBtn} onPress={() => removePhoto(index)} hitSlop={8}>
+                    <Ionicons name="close-circle" size={rs(24)} color="#E53935" />
+                  </Pressable>
+                </View>
+              ))}
+              {photoUris.length < MAX_PHOTOS && (
+                <Pressable
+                  style={[styles.addPhotoBtn, uploadingPhoto && styles.addPhotoBtnDisabled]}
+                  onPress={handleAddPhoto}
+                  disabled={uploadingPhoto}
+                >
+                  {uploadingPhoto ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="camera-outline" size={rs(28)} color={Colors.primary} />
+                      <Text style={styles.addPhotoText}>Add photo</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+            </View>
 
             <Pressable
               style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
@@ -262,15 +395,15 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: rs(20), paddingTop: 0 },
   card: {
     backgroundColor: "#fff",
-    borderRadius: rs(24),
-    marginTop: -rs(24),
-    padding: rs(20),
-    paddingTop: rs(24),
+    borderRadius: rs(20),
+    marginTop: -rs(32),
+    padding: rs(24),
+    paddingTop: rs(28),
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
   },
   cardTopRow: {
     flexDirection: "row",
@@ -305,37 +438,71 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: rs(10),
   },
-  starRow: { flexDirection: "row", gap: rs(8), marginBottom: rs(8) },
-  starBtn: { padding: rs(4), minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, alignItems: "center", justifyContent: "center" },
+  starRow: { flexDirection: "row", gap: rs(12), marginBottom: rs(4) },
+  starBtn: { padding: rs(6), minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, alignItems: "center", justifyContent: "center" },
   textArea: {
-    backgroundColor: "#F5F5F5",
-    borderRadius: rs(12),
+    backgroundColor: "#F8F9FA",
+    borderRadius: rs(14),
     paddingHorizontal: rs(16),
     paddingVertical: rs(14),
     fontSize: rf(16),
     color: Colors.text,
-    minHeight: rs(120),
+    minHeight: rs(140),
     textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
-  addPhotoRow: {
+  hint: {
+    fontSize: rf(13),
+    color: Colors.textSecondary,
+    marginBottom: rs(12),
+  },
+  photoSection: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: rs(12),
+  },
+  photoThumbWrap: {
+    position: "relative",
+    width: rs(80),
+    height: rs(80),
+    borderRadius: rs(12),
+    overflow: "hidden",
+  },
+  photoThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  removePhotoBtn: {
+    position: "absolute",
+    top: rs(4),
+    right: rs(4),
+  },
+  addPhotoBtn: {
+    width: rs(80),
+    height: rs(80),
+    borderRadius: rs(12),
+    borderWidth: 2,
+    borderColor: Colors.primary + "60",
+    borderStyle: "dashed",
     alignItems: "center",
-    gap: rs(8),
-    marginTop: rs(16),
-    minHeight: MIN_TOUCH,
     justifyContent: "center",
+    gap: rs(4),
+  },
+  addPhotoBtnDisabled: {
+    opacity: 0.7,
   },
   addPhotoText: {
-    fontSize: rf(15),
+    fontSize: rf(12),
     fontWeight: "600" as const,
     color: Colors.primary,
   },
   submitBtn: {
     backgroundColor: Colors.primary,
-    paddingVertical: rs(16),
+    paddingVertical: rs(18),
     borderRadius: rs(14),
     alignItems: "center",
-    marginTop: rs(28),
+    marginTop: rs(32),
     minHeight: MIN_TOUCH,
     justifyContent: "center",
   },

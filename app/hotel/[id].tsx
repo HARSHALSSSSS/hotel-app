@@ -140,6 +140,13 @@ function ReviewCard({ review }: { review: Review }) {
         </View>
       </View>
       <Text style={styles.reviewComment}>{review.comment}</Text>
+      {review.images && review.images.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewImages} contentContainerStyle={styles.reviewImagesContent}>
+          {review.images.map((imgUri, i) => (
+            <Image key={i} source={{ uri: imgUri }} style={styles.reviewImage} contentFit="cover" />
+          ))}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -197,6 +204,7 @@ function mapApiHotelToDetail(api: any): HotelDetail {
     comment: r.comment ?? "",
     date: r.createdAt ?? r.created_at ?? new Date().toISOString(),
     avatar: (typeof r.userAvatar === "string" && r.userAvatar) || (r.user_avatar) || "#1B4B66",
+    images: Array.isArray(r.images) ? r.images : (r.images && typeof r.images === "string" ? (() => { try { return JSON.parse(r.images); } catch { return []; } })() : []),
   }));
   const rooms: Room[] = (api.rooms || []).map((r: any) => ({
     id: r.id,
@@ -1368,6 +1376,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     color: Colors.textSecondary,
+  },
+  reviewImages: {
+    marginTop: 10,
+    marginHorizontal: -4,
+  },
+  reviewImagesContent: {
+    gap: 8,
+    paddingRight: 4,
+  },
+  reviewImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
   },
   reviewFormCard: {
     backgroundColor: Colors.card,

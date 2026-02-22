@@ -37,7 +37,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    const failsafe = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 15000);
+    const failsafe = setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 8000);
     return () => clearTimeout(failsafe);
   }, []);
   return (

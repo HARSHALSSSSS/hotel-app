@@ -25,7 +25,7 @@ const RECOMMENDED_CARD_GAP = rs(14);
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { unreadCount, hotels, featuredHotels, refreshHotels, isFavorite, toggleFavorite, locationDisplayName, isLoading } = useApp();
+  const { unreadCount, hotels, featuredHotels, refreshHotels, isFavorite, toggleFavorite, locationDisplayName, isLoading, hotelsLoading } = useApp();
   const [refreshing, setRefreshing] = useState(false);
   const locationLabel = locationDisplayName || "Tap to set location";
 
@@ -107,7 +107,7 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.recommendedRow}
           >
-            {recommendedHotels.length === 0 && isLoading ? (
+            {recommendedHotels.length === 0 && (isLoading || hotelsLoading) ? (
               <View style={styles.recommendedPlaceholder}>
                 <ActivityIndicator size="small" color={Colors.primary} />
                 <Text style={styles.recommendedPlaceholderText}>Loading...</Text>
@@ -129,7 +129,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.nearbyList}>
             {displayNearby.length === 0 ? (
-              isLoading ? (
+              isLoading || hotelsLoading ? (
                 <View style={styles.emptyState}>
                   <ActivityIndicator size="large" color={Colors.primary} />
                   <Text style={styles.emptySub}>Loading hotels...</Text>

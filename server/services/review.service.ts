@@ -9,6 +9,7 @@ export class ReviewService {
     rating: number;
     comment: string;
     bookingId?: string;
+    images?: string[];
   }) {
     const [review] = await db.insert(reviews).values({
       userId,
@@ -16,6 +17,7 @@ export class ReviewService {
       rating: data.rating,
       comment: data.comment,
       bookingId: data.bookingId || null,
+      images: Array.isArray(data.images) && data.images.length > 0 ? data.images : [],
     }).returning();
 
     await HotelService.updateRating(data.hotelId);
@@ -28,6 +30,7 @@ export class ReviewService {
       id: reviews.id,
       rating: reviews.rating,
       comment: reviews.comment,
+      images: reviews.images,
       createdAt: reviews.createdAt,
       userId: reviews.userId,
       userName: users.name,
