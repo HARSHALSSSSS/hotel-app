@@ -461,7 +461,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshBookings = useCallback(async () => {
     try {
       const res = await authFetch("/api/bookings");
-      if (res.ok) setBookings(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        const normalized = (Array.isArray(data) ? data : []).map((b: any) => {
+          let img = b.hotelImage;
+          if (typeof img === "string" && img.startsWith("[")) { try { img = JSON.parse(img); } catch {} }
+          if (Array.isArray(img)) img = img[0] ?? "";
+          return { ...b, hotelImage: typeof img === "string" ? img : "" };
+        });
+        setBookings(normalized);
+      }
     } catch {}
   }, []);
 
@@ -642,7 +651,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: b.id,
         hotelId: b.hotelId,
         hotelName: b.hotelName ?? "",
-        hotelImage: typeof b.hotelImage === "string" ? b.hotelImage : (b.hotelImage as string[])?.[0],
+        hotelImage: (() => { let img = b.hotelImage; if (typeof img === "string" && img.startsWith("[")) { try { img = JSON.parse(img); } catch {} } return typeof img === "string" ? img : Array.isArray(img) ? img[0] ?? "" : ""; })(),
         roomName: b.roomName,
         checkIn: typeof b.checkIn === "string" ? b.checkIn : new Date(b.checkIn).toISOString(),
         checkOut: typeof b.checkOut === "string" ? b.checkOut : new Date(b.checkOut).toISOString(),

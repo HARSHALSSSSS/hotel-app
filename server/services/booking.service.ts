@@ -221,12 +221,17 @@ export class BookingService {
       .where(eq(bookings.userId, userId))
       .orderBy(sql`${bookings.createdAt} DESC`);
 
-    return result.map((b) => ({
-      ...b,
-      hotelImage: (b.hotelImage as string[])?.[0],
-      location: [b.hotelCity, b.hotelCountry].filter(Boolean).join(", ") || "—",
-      rating: Number(b.hotelRating) || 0,
-    }));
+    return result.map((b) => {
+      let imgs = b.hotelImage;
+      if (typeof imgs === "string") { try { imgs = JSON.parse(imgs); } catch { imgs = []; } }
+      if (!Array.isArray(imgs)) imgs = [];
+      return {
+        ...b,
+        hotelImage: imgs[0] || null,
+        location: [b.hotelCity, b.hotelCountry].filter(Boolean).join(", ") || "—",
+        rating: Number(b.hotelRating) || 0,
+      };
+    });
   }
 
   static async getById(bookingId: string) {
@@ -261,9 +266,12 @@ export class BookingService {
 
     if (!booking) throw new Error("Booking not found");
 
+    let bImgs = booking.hotelImage;
+    if (typeof bImgs === "string") { try { bImgs = JSON.parse(bImgs); } catch { bImgs = []; } }
+    if (!Array.isArray(bImgs)) bImgs = [];
     return {
       ...booking,
-      hotelImage: (booking.hotelImage as string[])?.[0],
+      hotelImage: bImgs[0] || null,
       location: [booking.hotelCity, booking.hotelCountry].filter(Boolean).join(", ") || "—",
       rating: Number(booking.hotelRating) || 0,
     };
