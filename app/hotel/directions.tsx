@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -80,16 +80,17 @@ export default function HotelDirectionsScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const goBackSafe = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace({
-        pathname: "/hotel/[id]",
-        params: { id: hotelId },
-      });
+  const goBackSafe = useCallback(() => {
+    try {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace({ pathname: "/hotel/[id]", params: { id: hotelId } });
+      }
+    } catch {
+      router.replace({ pathname: "/hotel/[id]", params: { id: hotelId } });
     }
-  };
+  }, [hotelId]);
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -555,7 +556,7 @@ export default function HotelDirectionsScreen() {
   const isClose =
     distanceToDest != null && distanceToDest <= ARRIVAL_THRESHOLD_METERS;
 
-  const performBack = () => {
+  const performBack = useCallback(() => {
     if (watchRef.current) {
       watchRef.current.remove();
       watchRef.current = null;
@@ -563,11 +564,14 @@ export default function HotelDirectionsScreen() {
     setHasStarted(false);
     setIsNavigating(false);
     goBackSafe();
-  };
+  }, [goBackSafe]);
 
-  const handleBack = () => {
+  const hasStartedRef = useRef(hasStarted);
+  hasStartedRef.current = hasStarted;
+
+  const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (hasStarted) {
+    if (hasStartedRef.current) {
       Alert.alert(
         "Cancel navigation?",
         "Are you sure you want to stop and go back?",
@@ -579,7 +583,7 @@ export default function HotelDirectionsScreen() {
     } else {
       performBack();
     }
-  };
+  }, [performBack]);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -588,7 +592,7 @@ export default function HotelDirectionsScreen() {
       return true;
     });
     return () => sub.remove();
-  }, [hasStarted, handleBack]);
+  }, [handleBack]);
 
   return (
     <View style={styles.container}>
@@ -604,7 +608,6 @@ export default function HotelDirectionsScreen() {
           style={styles.backBtn}
           onPress={handleBack}
           hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-          delayPressIn={0}
         >
           <Ionicons name="chevron-back" size={24} color={Colors.text} />
         </Pressable>
