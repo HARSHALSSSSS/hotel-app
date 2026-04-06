@@ -608,9 +608,9 @@ export default function HotelDetailScreen() {
               <Text style={[styles.aboutLabel, { marginTop: 20 }]}>Contact Details</Text>
               <View style={styles.contactRow}>
                 <View style={[styles.reviewAvatar, { backgroundColor: Colors.primary }]}>
-                  <Text style={styles.reviewAvatarText}>J</Text>
+                  <Text style={styles.reviewAvatarText}>{(hotel.name || "H").charAt(0)}</Text>
                 </View>
-                <Text style={styles.contactName}>John Doe</Text>
+                <Text style={styles.contactName}>{hotel.name} Support</Text>
                 <View style={styles.contactIcons}>
                   <Pressable
                     style={[styles.contactIconBtnPrimary, chatLoading && styles.contactIconBtnDisabled]}

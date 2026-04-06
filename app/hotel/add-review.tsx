@@ -11,6 +11,7 @@ import {
   ScrollView,
   ActivityIndicator,
   ActionSheetIOS,
+  useWindowDimensions,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,8 +50,10 @@ export default function AddReviewScreen() {
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  const { width: screenWidth } = useWindowDimensions();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const MAX_PHOTOS = 5;
+  const photoSize = Math.min(rs(90), (screenWidth - rs(40) - rs(48) - rs(48)) / 4);
 
   useEffect(() => {
     if (!hotelId) {
@@ -267,7 +270,7 @@ export default function AddReviewScreen() {
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + rs(24) }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + rs(40) }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -288,6 +291,11 @@ export default function AddReviewScreen() {
             <View style={styles.divider} />
 
             <Text style={styles.label}>Your rating</Text>
+            <View style={styles.ratingLabel}>
+              <Text style={styles.ratingHintText}>
+                {rating === 0 ? "Tap a star to rate" : rating <= 2 ? "Poor" : rating === 3 ? "Average" : rating === 4 ? "Good" : "Excellent"}
+              </Text>
+            </View>
             <View style={styles.starRow}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <Pressable
@@ -301,13 +309,14 @@ export default function AddReviewScreen() {
                   <Ionicons
                     name={star <= rating ? "star" : "star-outline"}
                     size={rs(36)}
-                    color={Colors.star}
+                    color={star <= rating ? Colors.star : "#D1D5DB"}
                   />
                 </Pressable>
               ))}
             </View>
 
-            <Text style={[styles.label, { marginTop: rs(24) }]}>Add detailed review</Text>
+            <View style={styles.sectionSpacer} />
+            <Text style={styles.label}>Add detailed review</Text>
             <TextInput
               style={styles.textArea}
               value={comment}
@@ -319,21 +328,23 @@ export default function AddReviewScreen() {
               textAlignVertical="top"
               editable={!submitting}
             />
+            <Text style={styles.charCount}>{comment.trim().length} / 500 characters</Text>
 
-            <Text style={[styles.label, { marginTop: rs(20) }]}>Add photos (optional)</Text>
+            <View style={styles.sectionSpacer} />
+            <Text style={styles.label}>Add photos (optional)</Text>
             <Text style={styles.hint}>Add up to {MAX_PHOTOS} photos to make your review stand out.</Text>
-            <View style={styles.photoSection}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScrollView} contentContainerStyle={styles.photoScrollContent}>
               {photoUris.map((uri, index) => (
-                <View key={uri} style={styles.photoThumbWrap}>
+                <View key={uri} style={[styles.photoThumbWrap, { width: photoSize, height: photoSize }]}>
                   <ExpoImage source={{ uri }} style={styles.photoThumb} contentFit="cover" />
                   <Pressable style={styles.removePhotoBtn} onPress={() => removePhoto(index)} hitSlop={8}>
-                    <Ionicons name="close-circle" size={rs(24)} color="#E53935" />
+                    <Ionicons name="close-circle" size={rs(22)} color="#E53935" />
                   </Pressable>
                 </View>
               ))}
               {photoUris.length < MAX_PHOTOS && (
                 <Pressable
-                  style={[styles.addPhotoBtn, uploadingPhoto && styles.addPhotoBtnDisabled]}
+                  style={[styles.addPhotoBtn, { width: photoSize, height: photoSize }, uploadingPhoto && styles.addPhotoBtnDisabled]}
                   onPress={handleAddPhoto}
                   disabled={uploadingPhoto}
                 >
@@ -341,23 +352,40 @@ export default function AddReviewScreen() {
                     <ActivityIndicator size="small" color={Colors.primary} />
                   ) : (
                     <>
-                      <Ionicons name="camera-outline" size={rs(28)} color={Colors.primary} />
-                      <Text style={styles.addPhotoText}>Add photo</Text>
+                      <Ionicons name="camera-outline" size={rs(26)} color={Colors.primary} />
+                      <Text style={styles.addPhotoText}>Add</Text>
                     </>
                   )}
                 </Pressable>
               )}
-            </View>
+            </ScrollView>
+
+            <View style={styles.sectionSpacer} />
+
+            {rating > 0 && comment.trim().length >= 5 && (
+              <View style={styles.reviewPreview}>
+                <Text style={styles.reviewPreviewTitle}>Review Preview</Text>
+                <View style={styles.reviewPreviewStars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons key={star} name={star <= rating ? "star" : "star-outline"} size={rs(16)} color={Colors.star} />
+                  ))}
+                </View>
+                <Text style={styles.reviewPreviewText} numberOfLines={3}>{comment.trim()}</Text>
+                {photoUris.length > 0 && (
+                  <Text style={styles.reviewPreviewPhotos}>{photoUris.length} photo{photoUris.length > 1 ? "s" : ""} attached</Text>
+                )}
+              </View>
+            )}
 
             <Pressable
-              style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+              style={[styles.submitBtn, (submitting || rating < 1 || comment.trim().length < 5) && styles.submitBtnDisabled]}
               onPress={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || rating < 1 || comment.trim().length < 5}
             >
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitBtnText}>Submit</Text>
+                <Text style={styles.submitBtnText}>Submit Review</Text>
               )}
             </Pressable>
           </View>
@@ -436,36 +464,52 @@ const styles = StyleSheet.create({
     fontSize: rf(15),
     fontWeight: "600" as const,
     color: Colors.text,
-    marginBottom: rs(10),
+    marginBottom: rs(8),
   },
-  starRow: { flexDirection: "row", gap: rs(12), marginBottom: rs(4) },
+  ratingLabel: {
+    marginBottom: rs(8),
+  },
+  ratingHintText: {
+    fontSize: rf(13),
+    color: Colors.textSecondary,
+    fontWeight: "500" as const,
+  },
+  starRow: { flexDirection: "row", gap: rs(8), marginBottom: rs(4), justifyContent: "center" },
   starBtn: { padding: rs(6), minWidth: MIN_TOUCH, minHeight: MIN_TOUCH, alignItems: "center", justifyContent: "center" },
+  sectionSpacer: { height: rs(24) },
   textArea: {
     backgroundColor: "#F8F9FA",
     borderRadius: rs(14),
     paddingHorizontal: rs(16),
     paddingVertical: rs(14),
-    fontSize: rf(16),
+    fontSize: rf(15),
     color: Colors.text,
-    minHeight: rs(140),
+    minHeight: rs(130),
     textAlignVertical: "top",
     borderWidth: 1,
     borderColor: Colors.borderLight,
+  },
+  charCount: {
+    fontSize: rf(12),
+    color: Colors.textTertiary,
+    textAlign: "right" as const,
+    marginTop: rs(6),
   },
   hint: {
     fontSize: rf(13),
     color: Colors.textSecondary,
     marginBottom: rs(12),
   },
-  photoSection: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: rs(12),
+  photoScrollView: {
+    marginHorizontal: -rs(4),
+  },
+  photoScrollContent: {
+    gap: rs(10),
+    paddingHorizontal: rs(4),
+    paddingVertical: rs(4),
   },
   photoThumbWrap: {
     position: "relative",
-    width: rs(80),
-    height: rs(80),
     borderRadius: rs(12),
     overflow: "hidden",
   },
@@ -479,8 +523,6 @@ const styles = StyleSheet.create({
     right: rs(4),
   },
   addPhotoBtn: {
-    width: rs(80),
-    height: rs(80),
     borderRadius: rs(12),
     borderWidth: 2,
     borderColor: Colors.primary + "60",
@@ -493,20 +535,50 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   addPhotoText: {
-    fontSize: rf(12),
+    fontSize: rf(11),
     fontWeight: "600" as const,
     color: Colors.primary,
+  },
+  reviewPreview: {
+    backgroundColor: "#F8F9FA",
+    borderRadius: rs(12),
+    padding: rs(16),
+    marginBottom: rs(8),
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  reviewPreviewTitle: {
+    fontSize: rf(13),
+    fontWeight: "600" as const,
+    color: Colors.textSecondary,
+    marginBottom: rs(8),
+  },
+  reviewPreviewStars: {
+    flexDirection: "row",
+    gap: rs(2),
+    marginBottom: rs(8),
+  },
+  reviewPreviewText: {
+    fontSize: rf(14),
+    color: Colors.text,
+    lineHeight: rf(20),
+  },
+  reviewPreviewPhotos: {
+    fontSize: rf(12),
+    color: Colors.primary,
+    fontWeight: "500" as const,
+    marginTop: rs(8),
   },
   submitBtn: {
     backgroundColor: Colors.primary,
     paddingVertical: rs(18),
     borderRadius: rs(14),
     alignItems: "center",
-    marginTop: rs(32),
+    marginTop: rs(24),
     minHeight: MIN_TOUCH,
     justifyContent: "center",
   },
-  submitBtnDisabled: { opacity: 0.7 },
+  submitBtnDisabled: { opacity: 0.5 },
   submitBtnText: {
     fontSize: rf(16),
     fontWeight: "700" as const,

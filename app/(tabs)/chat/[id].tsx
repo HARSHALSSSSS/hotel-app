@@ -112,9 +112,11 @@ export default function ChatConversationScreen() {
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       } else {
         setInput(text);
+        Alert.alert("Failed", "Could not send message. Please try again.");
       }
     } catch {
       setInput(text);
+      Alert.alert("Failed", "Could not send message. Check your connection.");
     } finally {
       setSending(false);
     }
@@ -221,7 +223,14 @@ export default function ChatConversationScreen() {
   const InputBar = (
     <View style={[styles.inputRow, { paddingBottom: inputBarPadding }]}>
       {!recording ? (
-        <Pressable style={styles.attachBtn}>
+        <Pressable style={styles.attachBtn} onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Alert.alert("Attach", "Choose an option", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Photo from Gallery", onPress: () => Alert.alert("Coming Soon", "Photo sharing will be available in a future update.") },
+            { text: "Take Photo", onPress: () => Alert.alert("Coming Soon", "Photo sharing will be available in a future update.") },
+          ]);
+        }}>
           <Ionicons name="add" size={rs(26)} color="#fff" />
         </Pressable>
       ) : (

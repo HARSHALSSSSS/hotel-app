@@ -48,12 +48,11 @@ export default function CancelBookingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await cancelBooking(bookingId, reason);
-      await refreshBookings();
       Alert.alert("Booking Cancelled", "Your reservation has been cancelled. A refund will be processed if applicable.", [
-        { text: "OK", onPress: () => router.replace("/profile/bookings") },
+        { text: "OK", onPress: () => router.replace({ pathname: "/profile/bookings", params: { tab: "cancelled" } }) },
       ]);
     } catch (e: any) {
-      Alert.alert("Error", e?.message || "Failed to cancel booking.");
+      Alert.alert("Error", e?.message || "Failed to cancel booking. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -117,7 +116,7 @@ export default function CancelBookingScreen() {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.submitBtnText}>Cancel Appointment</Text>
+            <Text style={styles.submitBtnText}>Cancel Booking</Text>
           )}
         </Pressable>
       </ScrollView>

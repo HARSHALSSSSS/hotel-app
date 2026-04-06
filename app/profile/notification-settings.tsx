@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, Text, Pressable, Platform, ScrollView, Switch } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import Colors from "@/constants/colors";
+
+const NOTIF_SETTINGS_KEY = "@stayease_notif_settings";
 
 export default function NotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -15,9 +18,29 @@ export default function NotificationSettingsScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const toggle = (value: boolean, setValue: (v: boolean) => void) => {
+  useEffect(() => {
+    AsyncStorage.getItem(NOTIF_SETTINGS_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        if (typeof saved.push === "boolean") setPushEnabled(saved.push);
+        if (typeof saved.email === "boolean") setEmailEnabled(saved.email);
+        if (typeof saved.reminders === "boolean") setBookingReminders(saved.reminders);
+        if (typeof saved.promos === "boolean") setPromos(saved.promos);
+      } catch {}
+    });
+  }, []);
+
+  const persist = useCallback((p: boolean, e: boolean, r: boolean, pr: boolean) => {
+    AsyncStorage.setItem(NOTIF_SETTINGS_KEY, JSON.stringify({ push: p, email: e, reminders: r, promos: pr })).catch(() => {});
+  }, []);
+
+  const toggle = (value: boolean, setValue: (v: boolean) => void, key: "push" | "email" | "reminders" | "promos") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setValue(!value);
+    const newVal = !value;
+    setValue(newVal);
+    const next = { push: pushEnabled, email: emailEnabled, reminders: bookingReminders, promos, [key]: newVal };
+    persist(next.push, next.email, next.reminders, next.promos);
   };
 
   return (
@@ -40,7 +63,7 @@ export default function NotificationSettingsScreen() {
             <Text style={styles.rowLabel}>Push notifications</Text>
             <Switch
               value={pushEnabled}
-              onValueChange={() => toggle(pushEnabled, setPushEnabled)}
+              onValueChange={() => toggle(pushEnabled, setPushEnabled, "push")}
               trackColor={{ false: Colors.border, true: Colors.primary + "80" }}
               thumbColor="#fff"
             />
@@ -49,7 +72,7 @@ export default function NotificationSettingsScreen() {
             <Text style={styles.rowLabel}>Email notifications</Text>
             <Switch
               value={emailEnabled}
-              onValueChange={() => toggle(emailEnabled, setEmailEnabled)}
+              onValueChange={() => toggle(emailEnabled, setEmailEnabled, "email")}
               trackColor={{ false: Colors.border, true: Colors.primary + "80" }}
               thumbColor="#fff"
             />
@@ -58,7 +81,7 @@ export default function NotificationSettingsScreen() {
             <Text style={styles.rowLabel}>Booking reminders</Text>
             <Switch
               value={bookingReminders}
-              onValueChange={() => toggle(bookingReminders, setBookingReminders)}
+              onValueChange={() => toggle(bookingReminders, setBookingReminders, "reminders")}
               trackColor={{ false: Colors.border, true: Colors.primary + "80" }}
               thumbColor="#fff"
             />
@@ -67,7 +90,7 @@ export default function NotificationSettingsScreen() {
             <Text style={styles.rowLabel}>Promotions and offers</Text>
             <Switch
               value={promos}
-              onValueChange={() => toggle(promos, setPromos)}
+              onValueChange={() => toggle(promos, setPromos, "promos")}
               trackColor={{ false: Colors.border, true: Colors.primary + "80" }}
               thumbColor="#fff"
             />

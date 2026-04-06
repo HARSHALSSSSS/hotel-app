@@ -34,7 +34,7 @@ export default function WalletScreen() {
             <Ionicons name="wallet" size={32} color="#fff" />
           </View>
           <Text style={styles.balanceLabel}>Available Balance</Text>
-          <Text style={styles.balanceValue}>${balance.toFixed(2)}</Text>
+          <Text style={styles.balanceValue}>₹{balance.toLocaleString("en-IN")}</Text>
         </View>
 
         <Pressable

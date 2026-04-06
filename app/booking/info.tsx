@@ -9,6 +9,7 @@ import {
   TextInput,
   Modal,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,9 +46,9 @@ export default function BookingInfoScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [gender, setGender] = useState("");
-  const [countryCode, setCountryCode] = useState("+1");
+  const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
-  const [country, setCountry] = useState("United States");
+  const [country, setCountry] = useState("India");
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showCodePicker, setShowCodePicker] = useState(false);
@@ -70,10 +71,15 @@ export default function BookingInfoScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const canContinue = name.trim().length > 0 && email.trim().length > 0 && phone.trim().length > 0;
+  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const canContinue = name.trim().length > 0 && isValidEmail(email.trim()) && phone.trim().length >= 6;
 
   const handleContinue = () => {
     if (!canContinue || !params.hotelId || !params.roomId) return;
+    if (!isValidEmail(email.trim())) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const fullPhone = (countryCode + " " + phone.trim()).trim();
     router.push({

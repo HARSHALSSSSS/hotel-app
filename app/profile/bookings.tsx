@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 import { getOptimizedImageUrl } from "@/lib/image-utils";
 import Colors from "@/constants/colors";
@@ -59,7 +59,7 @@ function BookingCardUpcoming({
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <ExpoImage
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://via.placeholder.com/400" }}
+          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
           style={styles.cardImage}
           contentFit="cover"
           transition={150}
@@ -68,9 +68,6 @@ function BookingCardUpcoming({
         />
         <View style={styles.heartWrap}>
           <Ionicons name="heart" size={18} color={Colors.primary} />
-        </View>
-        <View style={styles.discountTag}>
-          <Text style={styles.discountText}>10% Off</Text>
         </View>
       </View>
       <View style={styles.cardBody}>
@@ -133,7 +130,7 @@ function BookingCardCompleted({
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <ExpoImage
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://via.placeholder.com/400" }}
+          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
           style={styles.cardImage}
           contentFit="cover"
           transition={150}
@@ -142,9 +139,6 @@ function BookingCardCompleted({
         />
         <View style={styles.heartWrap}>
           <Ionicons name="heart" size={18} color={Colors.primary} />
-        </View>
-        <View style={styles.discountTag}>
-          <Text style={styles.discountText}>10% Off</Text>
         </View>
       </View>
       <View style={styles.cardBody}>
@@ -193,7 +187,7 @@ function BookingCardCancelled({
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <ExpoImage
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://via.placeholder.com/400" }}
+          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
           style={styles.cardImage}
           contentFit="cover"
           transition={150}
@@ -202,9 +196,6 @@ function BookingCardCancelled({
         />
         <View style={styles.heartWrap}>
           <Ionicons name="heart" size={18} color={Colors.primary} />
-        </View>
-        <View style={styles.discountTag}>
-          <Text style={styles.discountText}>10% Off</Text>
         </View>
       </View>
       <View style={styles.cardBody}>
@@ -233,8 +224,10 @@ function BookingCardCancelled({
 
 export default function MyBookingsScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ tab?: string }>();
   const { bookings, refreshBookings } = useApp();
-  const [tab, setTab] = useState<TabKey>("upcoming");
+  const initialTab = (params.tab === "cancelled" || params.tab === "completed") ? params.tab : "upcoming";
+  const [tab, setTab] = useState<TabKey>(initialTab as TabKey);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -246,7 +239,26 @@ export default function MyBookingsScreen() {
   };
 
   const onReceipt = (booking: BookingItem) => {
-    router.push({ pathname: "/booking/[id]", params: { id: booking.id } });
+    const totalPrice = Number(booking.totalPrice) || 0;
+    const taxes = Math.round(totalPrice * 0.12);
+    const serviceFee = 25;
+    const amount = totalPrice - taxes - serviceFee;
+    router.push({
+      pathname: "/booking/receipt",
+      params: {
+        bookingId: booking.id,
+        transactionId: `#RE-${booking.id}`,
+        hotelName: booking.hotelName || "",
+        checkIn: booking.checkIn || "",
+        checkOut: booking.checkOut || "",
+        guests: String(booking.guests || 1),
+        amount: amount.toFixed(2),
+        taxesAndFees: (taxes + serviceFee).toFixed(2),
+        total: totalPrice.toFixed(2),
+        guestName: "",
+        guestPhone: "",
+      },
+    });
   };
 
   const onReBook = (booking: BookingItem) => {

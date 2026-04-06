@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
 import { rs, rf } from "@/constants/responsive";
 import { useLocalSearchParams, router } from "expo-router";
@@ -33,10 +34,12 @@ export default function ReceiptScreen() {
     guestPhone: string;
   }>();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const [downloading, setDownloading] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+  const barcodeWidth = Math.min(screenWidth - 80, 400);
 
   const bookingDateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) + " | " + new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
   const checkInStr = params.checkIn ? new Date(params.checkIn).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
@@ -118,7 +121,7 @@ export default function ReceiptScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + bottomInset }]} showsVerticalScrollIndicator={false}>
         <View style={styles.barcodeWrap}>
-          <BarcodeSvg value={transactionId} width={320} height={64} />
+          <BarcodeSvg value={transactionId} width={barcodeWidth} height={72} />
         </View>
 
         <Text style={styles.sectionTitle}>Booking Details</Text>

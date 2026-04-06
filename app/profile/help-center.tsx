@@ -23,7 +23,7 @@ const FAQ_ITEMS: { id: string; question: string; answer: string; category: strin
   {
     id: "1",
     question: "How do I schedule a Booking?",
-    answer: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+    answer: "Open the app and browse hotels or use the search bar. Select a hotel, pick your room, choose check-in and check-out dates, enter guest details, select a payment method, and confirm your booking.",
     category: "Services",
   },
   {

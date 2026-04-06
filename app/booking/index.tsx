@@ -34,7 +34,7 @@ function formatDayLabel(d: Date): string {
 }
 
 export default function BookingDateScreen() {
-  const { isAuthenticated } = useApp();
+  const { isAuthenticated, getHotelById } = useApp();
   const params = useLocalSearchParams<{
     hotelId: string;
     roomId: string;
@@ -80,10 +80,11 @@ export default function BookingDateScreen() {
     return arr;
   }, [checkIn]);
 
+  const hotelData = params.hotelId ? getHotelById(params.hotelId) : null;
   const orig = params.originalPrice ? parseFloat(params.originalPrice) : 0;
   const curr = params.roomPrice ? parseFloat(params.roomPrice) : 0;
   const discountPercent = orig > curr && orig > 0 ? Math.round(((orig - curr) / orig) * 100) : 0;
-  const fullAddress = params.hotelAddress || "Hotel address";
+  const fullAddress = params.hotelAddress || (hotelData ? [hotelData.location, hotelData.city, hotelData.country].filter(Boolean).join(", ") : "");
   const canContinue = checkIn != null && checkOut != null && checkOut > checkIn;
 
   const handleContinue = () => {
@@ -157,7 +158,7 @@ export default function BookingDateScreen() {
             )}
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={14} color={Colors.star} />
-              <Text style={styles.ratingText}>4.5 (365 reviews)</Text>
+              <Text style={styles.ratingText}>{hotelData ? `${hotelData.rating.toFixed(1)} (${hotelData.reviewCount} reviews)` : ""}</Text>
             </View>
           </View>
           <Text style={styles.hotelName}>{params.hotelName}</Text>

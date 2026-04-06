@@ -127,7 +127,7 @@ export default function VerifyCodeScreen() {
         {email ? (
           <Text style={styles.emailText}>{email}</Text>
         ) : (
-          <Text style={styles.emailText}>example@email.com</Text>
+          <Text style={styles.emailText}>your email</Text>
         )}
 
         <View style={styles.otpRow}>

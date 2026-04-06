@@ -150,7 +150,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [searchFilters, setSearchFilters] = useState({
     sortBy: "popular",
     minPrice: 0,
-    maxPrice: 10000,
+    maxPrice: 100000,
     minRating: 0,
     facility: "All",
     bedroom: "1",
@@ -278,7 +278,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const fetchHotels = async (): Promise<HotelListItem[]> => {
         try {
-          const res = await authFetch("/api/hotels", {}, 40000);
+          const res = await authFetch("/api/hotels", {}, 20000);
           const data = res.ok ? await res.json() : [];
           const list = Array.isArray(data) ? data : [];
           return normalizeHotels(list);
@@ -287,19 +287,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      (async () => {
-        try {
-          const { getApiUrl } = await import("@/lib/query-client");
-          const controller = new AbortController();
-          const t = setTimeout(() => controller.abort(), 12000);
-          await fetch(new URL("/api/hotels", getApiUrl()).toString(), { method: "GET", signal: controller.signal });
-          clearTimeout(t);
-        } catch {}
-      })();
-      await new Promise((r) => setTimeout(r, 5000));
-
+      // Fetch hotels immediately — no artificial delay
       let normalized = await fetchHotels();
-      const retryDelays = [5000, 10000, 15000, 20000, 25000];
+      // Retry with shorter delays if server was cold-starting (Render free tier)
+      const retryDelays = [3000, 6000, 10000];
       for (let i = 0; i < retryDelays.length && normalized.length === 0; i++) {
         await new Promise((r) => setTimeout(r, retryDelays[i]));
         normalized = await fetchHotels();
@@ -443,7 +434,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshHotels = useCallback(async () => {
     const fetchHotels = async (): Promise<HotelListItem[]> => {
       try {
-        const res = await authFetch("/api/hotels", {}, 40000);
+        const res = await authFetch("/api/hotels", {}, 20000);
         const data = res.ok ? await res.json() : [];
         const list = Array.isArray(data) ? data : [];
         return normalizeHotels(list);
@@ -452,7 +443,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     };
     let normalized = await fetchHotels();
-    const retryDelays = [5000, 10000, 15000];
+    const retryDelays = [2000, 4000, 8000];
     for (let i = 0; i < retryDelays.length && normalized.length === 0; i++) {
       await new Promise((r) => setTimeout(r, retryDelays[i]));
       normalized = await fetchHotels();

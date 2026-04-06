@@ -168,7 +168,7 @@ export default function SearchScreen() {
       query,
       "all",
       searchFilters.minPrice || 0,
-      searchFilters.maxPrice || 10000,
+      searchFilters.maxPrice || 100000,
       searchFilters.minRating || 0
     );
     switch (searchFilters.sortBy) {

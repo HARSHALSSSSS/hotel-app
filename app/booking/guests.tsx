@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   backBtnStandalone: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14 },
   backBtnStandaloneText: { fontSize: 16, fontWeight: "700" as const, color: "#fff" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
+  backBtn: { width: Math.max(40, 44), height: Math.max(40, 44), borderRadius: 22, backgroundColor: "#F0F0F0", alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center" as const, fontSize: 18, fontWeight: "700" as const, color: Colors.text },
   headerSpacer: { width: 40 },
   scroll: { flex: 1 },

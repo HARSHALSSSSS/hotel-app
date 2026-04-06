@@ -10,7 +10,7 @@ import { rs, rf, MIN_TOUCH } from "@/constants/responsive";
 import { useApp } from "@/lib/app-context";
 import { Notification } from "@/lib/hotel-data";
 
-function NotificationItem({ notif, index, onPress }: { notif: Notification; index: number; onPress: () => void }) {
+function NotificationItem({ notif, index, onPress, isExpanded }: { notif: Notification; index: number; onPress: () => void; isExpanded: boolean }) {
   const iconMap: Record<string, string> = {
     booking: "calendar",
     promo: "pricetag",
@@ -34,7 +34,7 @@ function NotificationItem({ notif, index, onPress }: { notif: Notification; inde
   return (
     <Animated.View entering={FadeInDown.delay(index * 60).duration(400)}>
       <Pressable
-        style={[styles.notifCard, !notif.read && styles.notifUnread]}
+        style={[styles.notifCard, !notif.read && styles.notifUnread, isExpanded && styles.notifCardExpanded]}
         onPress={onPress}
       >
         <View style={[styles.notifIcon, { backgroundColor: colorMap[notif.type] + "15" }]}>
@@ -47,9 +47,25 @@ function NotificationItem({ notif, index, onPress }: { notif: Notification; inde
             </Text>
             <Text style={styles.notifTime}>{timeAgo(notif.createdAt)}</Text>
           </View>
-          <Text style={styles.notifMessage} numberOfLines={2}>
-            {notif.message}
-          </Text>
+          {isExpanded ? (
+            <Text style={styles.notifMessageFull}>
+              {notif.message}
+            </Text>
+          ) : (
+            <Text style={styles.notifMessage} numberOfLines={2}>
+              {notif.message}
+            </Text>
+          )}
+          {isExpanded && (
+            <View style={styles.notifExpandedFooter}>
+              <Text style={styles.notifExpandedDate}>
+                {new Date(notif.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </Text>
+              <View style={styles.notifTypeBadge}>
+                <Text style={[styles.notifTypeText, { color: colorMap[notif.type] }]}>{notif.type}</Text>
+              </View>
+            </View>
+          )}
         </View>
         {!notif.read && <View style={styles.unreadDot} />}
       </Pressable>
@@ -60,6 +76,7 @@ function NotificationItem({ notif, index, onPress }: { notif: Notification; inde
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const { notifications, markNotificationRead, markAllNotificationsRead, isAuthenticated } = useApp();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
   const hasUnread = notifications.some((n) => !n.read);
@@ -118,9 +135,11 @@ export default function NotificationsScreen() {
             <NotificationItem
               notif={item}
               index={index}
+              isExpanded={expandedId === item.id}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 markNotificationRead(item.id);
+                setExpandedId((prev) => (prev === item.id ? null : item.id));
               }}
             />
           )}
@@ -222,6 +241,40 @@ const styles = StyleSheet.create({
     fontSize: rf(13),
     color: Colors.textSecondary,
     lineHeight: rf(18),
+  },
+  notifMessageFull: {
+    fontSize: rf(13),
+    color: Colors.textSecondary,
+    lineHeight: rf(20),
+  },
+  notifCardExpanded: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  notifExpandedFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: rs(10),
+    paddingTop: rs(10),
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  notifExpandedDate: {
+    fontSize: rf(11),
+    color: Colors.textTertiary,
+  },
+  notifTypeBadge: {
+    paddingHorizontal: rs(8),
+    paddingVertical: rs(2),
+    borderRadius: rs(6),
+    backgroundColor: Colors.surfaceElevated,
+  },
+  notifTypeText: {
+    fontSize: rf(11),
+    fontWeight: "600" as const,
+    textTransform: "capitalize" as const,
   },
   unreadDot: {
     position: "absolute",

@@ -80,11 +80,15 @@ export default function HotelDirectionsScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const goBackToLocation = () => {
-    router.replace({
-      pathname: "/hotel/location",
-      params: { hotelId, hotelName, latitude: params.latitude ?? "", longitude: params.longitude ?? "", address: address || undefined },
-    });
+  const goBackSafe = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace({
+        pathname: "/hotel/[id]",
+        params: { id: hotelId },
+      });
+    }
   };
 
   useEffect(() => {
@@ -309,7 +313,7 @@ export default function HotelDirectionsScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
-          <Pressable style={styles.backBtn} onPress={goBackToLocation}>
+          <Pressable style={styles.backBtn} onPress={goBackSafe}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Get Direction</Text>
@@ -338,7 +342,7 @@ export default function HotelDirectionsScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
-          <Pressable style={styles.backBtn} onPress={goBackToLocation}>
+          <Pressable style={styles.backBtn} onPress={goBackSafe}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Get Direction</Text>
@@ -375,7 +379,7 @@ export default function HotelDirectionsScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: topInset + rs(8) }]}>
-          <Pressable style={styles.backBtn} onPress={goBackToLocation}>
+          <Pressable style={styles.backBtn} onPress={goBackSafe}>
             <Ionicons name="chevron-back" size={24} color={Colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Get Direction</Text>
@@ -415,16 +419,26 @@ export default function HotelDirectionsScreen() {
 
   const routeGeoJSON = React.useMemo(() => {
     const coords = directions?.coordinates ?? [];
-    if (coords.length < 2) return null;
+    let lineCoords: [number, number][];
+    if (coords.length >= 2) {
+      lineCoords = coords.map((c) => [c.longitude, c.latitude]);
+    } else if (userLocation && destLat !== 0 && destLng !== 0) {
+      lineCoords = [
+        [userLocation.longitude, userLocation.latitude],
+        [destLng, destLat],
+      ];
+    } else {
+      return null;
+    }
     return {
       type: "Feature" as const,
       properties: {},
       geometry: {
         type: "LineString" as const,
-        coordinates: coords.map((c) => [c.longitude, c.latitude]),
+        coordinates: lineCoords,
       },
     };
-  }, [directions?.coordinates]);
+  }, [directions?.coordinates, userLocation, destLat, destLng]);
 
   const cameraRef = React.useRef<any>(null);
 
@@ -437,7 +451,7 @@ export default function HotelDirectionsScreen() {
           { latitude: destLat, longitude: destLng },
         ]
       : [...points, { latitude: destLat, longitude: destLng }];
-    if (all.length === 0)
+    if (all.length === 0 || destLat === 0)
       return {
         centerCoordinate: [destLng || 0, destLat || 20] as [number, number],
         zoomLevel: 12,
@@ -448,7 +462,9 @@ export default function HotelDirectionsScreen() {
       (Math.min(...lngs) + Math.max(...lngs)) / 2,
       (Math.min(...lats) + Math.max(...lats)) / 2,
     ];
-    return { centerCoordinate: center, zoomLevel: 11 };
+    const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs), 0.01);
+    const zoomLevel = Math.max(8, Math.min(14, Math.round(14 - Math.log2(span * 100))));
+    return { centerCoordinate: center, zoomLevel };
   }, [directions?.coordinates, userLocation, destLat, destLng]);
 
   // Fit the entire route with padding (Google Maps style) – zoom out to show full route before user taps Start
@@ -484,12 +500,12 @@ export default function HotelDirectionsScreen() {
     maxLat += latSpan * 0.15;
     const ne: [number, number] = [maxLng, maxLat];
     const sw: [number, number] = [minLng, minLat];
-    const padding = rs(80);
+    const padding = rs(100);
     const id = setTimeout(() => {
       if (cameraRef.current && !hasStarted && !loading) {
-        cameraRef.current.fitBounds(ne, sw, padding, 280);
+        cameraRef.current.fitBounds(ne, sw, padding, 400);
       }
-    }, 50);
+    }, 400);
     return () => clearTimeout(id);
   }, [directions?.coordinates, userLocation, destLat, destLng, hasStarted, loading]);
 
@@ -522,12 +538,20 @@ export default function HotelDirectionsScreen() {
     distanceToDest,
   ]);
 
+  const fallbackDistance =
+    userLocation && destLat !== 0
+      ? haversineMeters(userLocation.latitude, userLocation.longitude, destLat, destLng)
+      : null;
   const distanceText =
     distanceToDest != null
       ? distanceToDest >= 1000
         ? `${(distanceToDest / 1000).toFixed(1)} km`
         : `${Math.round(distanceToDest)} m`
-      : null;
+      : fallbackDistance != null
+        ? fallbackDistance >= 1000
+          ? `${(fallbackDistance / 1000).toFixed(1)} km`
+          : `${Math.round(fallbackDistance)} m`
+        : null;
   const isClose =
     distanceToDest != null && distanceToDest <= ARRIVAL_THRESHOLD_METERS;
 
@@ -538,7 +562,7 @@ export default function HotelDirectionsScreen() {
     }
     setHasStarted(false);
     setIsNavigating(false);
-    goBackToLocation();
+    goBackSafe();
   };
 
   const handleBack = () => {
@@ -632,11 +656,13 @@ export default function HotelDirectionsScreen() {
             <ShapeSource id="route" shape={routeGeoJSON}>
               <LineLayer
                 id="route-line"
+                sourceID="route"
                 style={{
-                  lineColor: "#1A1D21",
-                  lineWidth: 5,
+                  lineColor: Colors.primary,
+                  lineWidth: 6,
                   lineCap: "round",
                   lineJoin: "round",
+                  lineOpacity: 1,
                 }}
               />
             </ShapeSource>
@@ -654,8 +680,7 @@ export default function HotelDirectionsScreen() {
       <View
         style={[styles.bottomCard, { paddingBottom: bottomInset + rs(16) }]}
       >
-        {routeError ||
-        (locationStatus === "denied" && !userLocation) ? (
+        {locationStatus === "denied" && !userLocation ? (
           <Pressable style={styles.openMapsBtn} onPress={handleOpenInMaps}>
             <Ionicons name="open-outline" size={rs(20)} color="#fff" />
             <Text style={styles.openMapsBtnText}>
@@ -720,6 +745,15 @@ export default function HotelDirectionsScreen() {
                   Map follows you as you move
                 </Text>
               </View>
+            )}
+            {routeError && (
+              <Pressable
+                style={styles.openMapsLink}
+                onPress={handleOpenInMaps}
+              >
+                <Ionicons name="open-outline" size={rs(16)} color={Colors.primary} />
+                <Text style={styles.openMapsLinkText}>Open in maps for turn-by-turn</Text>
+              </Pressable>
             )}
           </>
         )}
@@ -888,6 +922,19 @@ const styles = StyleSheet.create({
     fontSize: rf(16),
     fontWeight: "600" as const,
     color: "#fff",
+  },
+  openMapsLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: rs(6),
+    marginTop: rs(12),
+    paddingVertical: rs(8),
+  },
+  openMapsLinkText: {
+    fontSize: rf(13),
+    fontWeight: "600" as const,
+    color: Colors.primary,
   },
   placeholder: {
     flex: 1,

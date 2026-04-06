@@ -116,6 +116,7 @@ export default function CallScreen() {
   const [status, setStatus] = useState<"connecting" | "connected" | "ended" | "error">("connecting");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [muted, setMuted] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(false);
   const voiceOnly = params.voiceOnly === "1";
   const [videoOff, setVideoOff] = useState(voiceOnly);
   const [hasVideoTrack, setHasVideoTrack] = useState(!voiceOnly);
@@ -752,9 +753,13 @@ export default function CallScreen() {
 
       <View style={[styles.controlBar, { paddingBottom: bottomInset + rs(20) }]}>
         <ControlButton
-          icon="volume-high"
-          label="Speaker"
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          icon={speakerOn ? "volume-high" : "volume-medium"}
+          label={speakerOn ? "Speaker On" : "Speaker"}
+          active={speakerOn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSpeakerOn((prev) => !prev);
+          }}
         />
         <ControlButton
           icon={muted ? "mic-off" : "mic"}

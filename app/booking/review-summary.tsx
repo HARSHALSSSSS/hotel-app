@@ -41,7 +41,8 @@ export default function ReviewSummaryScreen() {
     paymentMethod: string;
     cardLast4?: string;
   }>();
-  const { createBooking, createBookingWithRazorpay, refreshUser } = useApp();
+  const { createBooking, createBookingWithRazorpay, refreshUser, getHotelById } = useApp();
+  const hotelInfo = params.hotelId ? getHotelById(params.hotelId) : null;
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -154,7 +155,9 @@ export default function ReviewSummaryScreen() {
     );
   }
 
-  const discountPercent = 20;
+  const discountPercent = hotelInfo && hotelInfo.originalPrice > hotelInfo.pricePerNight
+    ? Math.round(((hotelInfo.originalPrice - hotelInfo.pricePerNight) / hotelInfo.originalPrice) * 100)
+    : 0;
 
   return (
     <View style={styles.container}>
@@ -182,13 +185,13 @@ export default function ReviewSummaryScreen() {
               </View>
               <View style={styles.ratingWrap}>
                 <Ionicons name="star" size={14} color={Colors.star} />
-                <Text style={styles.ratingText}>4.5</Text>
+                <Text style={styles.ratingText}>{hotelInfo?.rating?.toFixed(1) ?? "—"}</Text>
               </View>
             </View>
             <Text style={styles.hotelName}>{params.hotelName}</Text>
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={14} color={Colors.textSecondary} />
-              <Text style={styles.locationText}>New York, USA</Text>
+              <Text style={styles.locationText}>{hotelInfo ? [hotelInfo.city, hotelInfo.country].filter(Boolean).join(", ") : ""}</Text>
             </View>
             <Text style={styles.priceText}>₹{pricePerNight.toLocaleString("en-IN")} /night</Text>
           </View>

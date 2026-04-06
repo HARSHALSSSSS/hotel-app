@@ -1,10 +1,9 @@
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { View, Text, Platform } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
 const BAR_HEIGHT = 56;
 const BAR_WIDTH = 2;
-const GAP = 1;
 
 /**
  * Renders a unique barcode from a string (e.g. transaction ID).
@@ -30,12 +29,17 @@ export function BarcodeSvg({ value, width = 300, height = BAR_HEIGHT }: { value:
   const totalWidth = bars.reduce((s, b) => s + b.w, 0);
 
   return (
-    <View style={{ width, height, overflow: "hidden" }}>
-      <Svg width={width} height={height} viewBox={`0 0 ${Math.max(totalWidth, width)} ${height}`} preserveAspectRatio="xMidYMid slice">
-        {bars.map((bar, i) => (
-          <Rect key={i} x={bar.x} y={0} width={bar.w} height={height} fill={bar.fill} />
-        ))}
-      </Svg>
+    <View style={{ width, alignItems: "center" }}>
+      <View style={{ width, height }}>
+        <Svg width={width} height={height} viewBox={`0 0 ${totalWidth} ${height}`} preserveAspectRatio="xMidYMid meet">
+          {bars.map((bar, i) => (
+            <Rect key={i} x={bar.x} y={0} width={bar.w} height={height} fill={bar.fill} />
+          ))}
+        </Svg>
+      </View>
+      <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1 }}>
+        {value}
+      </Text>
     </View>
   );
 }

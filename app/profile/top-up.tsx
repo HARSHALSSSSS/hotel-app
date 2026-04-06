@@ -48,7 +48,7 @@ export default function TopUpScreen() {
           <Ionicons name="checkmark-circle" size={80} color={Colors.success} />
         </View>
         <Text style={styles.successTitle}>Top-up Successful</Text>
-        <Text style={styles.successSub}>${amount.toFixed(2)} has been added to your wallet.</Text>
+        <Text style={styles.successSub}>₹{amount.toLocaleString("en-IN")} has been added to your wallet.</Text>
         <Pressable style={styles.doneBtn} onPress={() => router.replace("/profile/wallet")}>
           <Text style={styles.doneBtnText}>Done</Text>
         </Pressable>
@@ -73,7 +73,7 @@ export default function TopUpScreen() {
       >
         <View style={styles.amountCard}>
           <Text style={styles.amountLabel}>Amount to add</Text>
-          <Text style={styles.amountValue}>${amount.toFixed(2)}</Text>
+          <Text style={styles.amountValue}>₹{amount.toLocaleString("en-IN")}</Text>
         </View>
 
         <Text style={styles.sectionLabel}>Payment method</Text>

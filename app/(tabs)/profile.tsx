@@ -104,8 +104,8 @@ export default function ProfileScreen() {
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>0</Text>
-                  <Text style={styles.statLabel}>Reviews</Text>
+                  <Text style={styles.statValue}>{bookings.filter((b) => b.status === "completed").length}</Text>
+                  <Text style={styles.statLabel}>Completed</Text>
                 </View>
               </View>
             </>
@@ -128,6 +128,8 @@ export default function ProfileScreen() {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     if (item.route) {
                       router.push(item.route as any);
+                    } else if (item.label === "Rate App") {
+                      Alert.alert("Rate Us", "Thank you for using StayEase! Rating is available on the App Store / Play Store.");
                     }
                   }}
                 >

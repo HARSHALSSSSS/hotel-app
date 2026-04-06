@@ -45,7 +45,7 @@ export default function DeleteAccountScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             try {
               await deleteAccount(password);
-              router.replace("/(tabs)");
+              router.replace("/auth/login");
             } catch (e: any) {
               Alert.alert("Error", e?.message || "Failed to delete account.");
             } finally {

@@ -21,7 +21,7 @@ import type { BookingItem } from "@/lib/app-context";
 export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { getBookingById, cancelBooking, refreshBookings } = useApp();
+  const { getBookingById, cancelBooking } = useApp();
   const [booking, setBooking] = useState<BookingItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
@@ -49,10 +49,11 @@ export default function BookingDetailScreen() {
             setCancelling(true);
             try {
               await cancelBooking(booking.id);
-              await refreshBookings();
-              router.back();
+              Alert.alert("Booking Cancelled", "Your reservation has been cancelled.", [
+                { text: "OK", onPress: () => router.back() },
+              ]);
             } catch (e: any) {
-              Alert.alert("Error", e?.message || "Failed to cancel.");
+              Alert.alert("Error", e?.message || "Failed to cancel. Please try again.");
             } finally {
               setCancelling(false);
             }
@@ -144,10 +145,40 @@ export default function BookingDetailScreen() {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>${booking.totalPrice}</Text>
+              <Text style={styles.totalValue}>₹{Number(booking.totalPrice).toLocaleString("en-IN")}</Text>
             </View>
           </View>
         </View>
+
+        {/* E-Receipt button */}
+        <Pressable
+          style={styles.eReceiptBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            const taxes = booking.totalPrice ? Math.round(Number(booking.totalPrice) * 0.12) : 0;
+            const serviceFee = 25;
+            const amount = Number(booking.totalPrice) - taxes - serviceFee;
+            router.push({
+              pathname: "/booking/receipt",
+              params: {
+                bookingId: booking.id,
+                transactionId: `#RE-${booking.id}`,
+                hotelName: booking.hotelName || "",
+                checkIn: booking.checkIn || "",
+                checkOut: booking.checkOut || "",
+                guests: String(booking.guests || 1),
+                amount: amount.toFixed(2),
+                taxesAndFees: (taxes + serviceFee).toFixed(2),
+                total: String(booking.totalPrice || 0),
+                guestName: "",
+                guestPhone: "",
+              },
+            });
+          }}
+        >
+          <Ionicons name="receipt-outline" size={20} color={Colors.primary} />
+          <Text style={styles.eReceiptBtnText}>View E-Receipt</Text>
+        </Pressable>
 
         {canCancel && (
           <Pressable
@@ -304,6 +335,24 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 22,
     fontWeight: "800" as const,
+    color: Colors.primary,
+  },
+  eReceiptBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + "08",
+    marginBottom: 12,
+  },
+  eReceiptBtnText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
     color: Colors.primary,
   },
   cancelBtn: {

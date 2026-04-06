@@ -32,7 +32,7 @@ export default function HotelCard({ hotel, index = 0, variant = "large" }: Hotel
     router.push({ pathname: "/hotel/[id]", params: { id: hotel.id } });
   };
 
-  const discount = Math.round(((hotel.originalPrice - hotel.pricePerNight) / hotel.originalPrice) * 100);
+  const discount = hotel.originalPrice > 0 ? Math.round(((hotel.originalPrice - hotel.pricePerNight) / hotel.originalPrice) * 100) : 0;
 
   if (variant === "compact") {
     return (

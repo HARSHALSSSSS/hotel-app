@@ -152,13 +152,13 @@ export default function RegisterScreen() {
             <View style={styles.dividerLine} />
           </View>
           <View style={styles.socialRow}>
-            <Pressable style={styles.socialBtn} onPress={() => {}}>
+            <Pressable style={styles.socialBtn} onPress={() => Alert.alert("Coming Soon", "Social login will be available in a future update.")}>
               <Ionicons name="logo-apple" size={rs(24)} color="#000" />
             </Pressable>
-            <Pressable style={styles.socialBtn} onPress={() => {}}>
+            <Pressable style={styles.socialBtn} onPress={() => Alert.alert("Coming Soon", "Social login will be available in a future update.")}>
               <Ionicons name="logo-google" size={rs(24)} color="#000" />
             </Pressable>
-            <Pressable style={styles.socialBtn} onPress={() => {}}>
+            <Pressable style={styles.socialBtn} onPress={() => Alert.alert("Coming Soon", "Social login will be available in a future update.")}>
               <Ionicons name="logo-facebook" size={rs(24)} color={SOCIAL_BLUE} />
             </Pressable>
           </View>
