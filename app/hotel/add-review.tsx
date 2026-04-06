@@ -24,6 +24,7 @@ import { rs, rf, MIN_TOUCH } from "@/constants/responsive";
 import { useApp } from "@/lib/app-context";
 import { authFetch, getToken } from "@/lib/auth";
 import { getApiUrl } from "@/lib/query-client";
+import { getOptimizedImageUrl } from "@/lib/image-utils";
 
 export default function AddReviewScreen() {
   const params = useLocalSearchParams<{ hotelId: string; bookingId?: string }>();
@@ -247,7 +248,7 @@ export default function AddReviewScreen() {
     );
   }
 
-  const heroImage = hotel?.images?.[0] || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80";
+  const heroImage = getOptimizedImageUrl(hotel?.images?.[0], "full") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80";
   const fullAddress = hotel ? [hotel.location, hotel.city, hotel.country].filter(Boolean).join(", ") : "";
   const discountPercent = hotel && hotel.originalPrice > hotel.pricePerNight
     ? Math.round(((hotel.originalPrice - hotel.pricePerNight) / hotel.originalPrice) * 100)

@@ -3,8 +3,8 @@ import { getApiUrl } from "./query-client";
 import { fetch } from "expo/fetch";
 
 const TOKEN_KEY = "@stayease_access_token";
-const REQUEST_TIMEOUT_MS = 20_000;
-const HOTELS_FETCH_TIMEOUT_MS = 40_000;
+const REQUEST_TIMEOUT_MS = 10_000;
+const HOTELS_FETCH_TIMEOUT_MS = 20_000;
 
 /** Fetch with timeout to prevent infinite loading when API is unreachable */
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {

@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View, Text, FlatList, Pressable, Platform } from "react-native";
 import { Image } from "expo-image";
-import { getOptimizedImageUrl } from "@/lib/image-utils";
+import { getOptimizedImageUrl, FALLBACK_HOTEL_IMAGE } from "@/lib/image-utils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
@@ -46,7 +46,7 @@ function BookingCard({ booking, index }: { booking: Booking; index: number }) {
         onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
       >
         <Image
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") }}
+          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || FALLBACK_HOTEL_IMAGE }}
           style={styles.bookingImage}
           contentFit="cover"
           transition={150}

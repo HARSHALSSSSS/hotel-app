@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { getOptimizedImageUrl, FALLBACK_HOTEL_IMAGE } from "@/lib/image-utils";
 import { useApp } from "@/lib/app-context";
 import type { BookingItem } from "@/lib/app-context";
 
@@ -114,7 +115,7 @@ export default function BookingDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Image source={{ uri: booking.hotelImage }} style={styles.image} contentFit="cover" />
+          <Image source={{ uri: getOptimizedImageUrl(booking.hotelImage, "full") || FALLBACK_HOTEL_IMAGE }} style={styles.image} contentFit="cover" transition={150} />
           <View style={styles.cardBody}>
             <View style={styles.cardHeader}>
               <Text style={styles.hotelName}>{booking.hotelName}</Text>

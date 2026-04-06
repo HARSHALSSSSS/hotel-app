@@ -23,7 +23,14 @@ export async function fetchDirections(
   const coords = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
   const url = `${OSRM_BASE}/route/v1/driving/${coords}?overview=full&geometries=geojson`;
   try {
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let res: Response;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const data = await res.json();
     if (data.code !== "Ok" || !data.routes?.[0]) return null;
     const route = data.routes[0];
