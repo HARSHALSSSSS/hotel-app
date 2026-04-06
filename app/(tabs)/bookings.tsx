@@ -11,6 +11,7 @@ import { useApp } from "@/lib/app-context";
 import { Booking } from "@/lib/hotel-data";
 
 function BookingCard({ booking, index }: { booking: Booking; index: number }) {
+  const { getHotelById } = useApp();
   const statusColor = (
     {
       confirmed: Colors.success,
@@ -46,7 +47,7 @@ function BookingCard({ booking, index }: { booking: Booking; index: number }) {
         onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
       >
         <Image
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || FALLBACK_HOTEL_IMAGE }}
+          source={{ uri: getOptimizedImageUrl(getHotelById(booking.hotelId)?.images?.[0], "card") || getOptimizedImageUrl(booking.hotelImage, "card") || FALLBACK_HOTEL_IMAGE }}
           style={styles.bookingImage}
           contentFit="cover"
           transition={150}

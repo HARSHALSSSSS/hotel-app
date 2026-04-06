@@ -22,7 +22,7 @@ import type { BookingItem } from "@/lib/app-context";
 export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { getBookingById, cancelBooking } = useApp();
+  const { getBookingById, cancelBooking, getHotelById } = useApp();
   const [booking, setBooking] = useState<BookingItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
@@ -115,7 +115,7 @@ export default function BookingDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Image source={{ uri: getOptimizedImageUrl(booking.hotelImage, "full") || FALLBACK_HOTEL_IMAGE }} style={styles.image} contentFit="cover" transition={150} />
+          <Image source={{ uri: getOptimizedImageUrl(getHotelById(booking.hotelId)?.images?.[0], "full") || getOptimizedImageUrl(booking.hotelImage, "full") || FALLBACK_HOTEL_IMAGE }} style={styles.image} contentFit="cover" transition={150} />
           <View style={styles.cardBody}>
             <View style={styles.cardHeader}>
               <Text style={styles.hotelName}>{booking.hotelName}</Text>

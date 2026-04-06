@@ -81,6 +81,9 @@ export default function BookingDateScreen() {
   }, [checkIn]);
 
   const hotelData = params.hotelId ? getHotelById(params.hotelId) : null;
+  const resolvedImage = getOptimizedImageUrl(hotelData?.images?.[0], "full")
+    || getOptimizedImageUrl(params.hotelImage, "full")
+    || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80";
   const orig = params.originalPrice ? parseFloat(params.originalPrice) : 0;
   const curr = params.roomPrice ? parseFloat(params.roomPrice) : 0;
   const discountPercent = orig > curr && orig > 0 ? Math.round(((orig - curr) / orig) * 100) : 0;
@@ -137,7 +140,7 @@ export default function BookingDateScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.heroWrap}>
           <Image
-            source={{ uri: getOptimizedImageUrl(params.hotelImage, "full") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80" }}
+            source={{ uri: resolvedImage }}
             style={styles.heroImage}
             contentFit="cover"
             transition={150}

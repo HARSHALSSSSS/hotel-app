@@ -172,7 +172,7 @@ export default function ReviewSummaryScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + bottomInset }]} showsVerticalScrollIndicator={false}>
         <View style={styles.hotelCard}>
           <Image
-            source={{ uri: getOptimizedImageUrl(params.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
+            source={{ uri: getOptimizedImageUrl(hotelInfo?.images?.[0], "card") || getOptimizedImageUrl(params.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
             style={styles.hotelImage}
             contentFit="cover"
             transition={120}

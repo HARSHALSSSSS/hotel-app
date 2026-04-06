@@ -72,33 +72,27 @@ export default function TopUpScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.amountCard}>
+          <View style={styles.amountIconWrap}>
+            <Ionicons name="wallet" size={32} color={Colors.primary} />
+          </View>
           <Text style={styles.amountLabel}>Amount to add</Text>
           <Text style={styles.amountValue}>₹{amount.toLocaleString("en-IN")}</Text>
         </View>
 
-        <Text style={styles.sectionLabel}>Payment method</Text>
-        <View style={styles.methodCard}>
-          <View style={styles.methodLeft}>
-            <View style={styles.methodIconWrap}>
-              <Ionicons name="card-outline" size={24} color={Colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.methodTitle}>Card / UPI</Text>
-              <Text style={styles.methodSub}>Pay securely to add to wallet</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={22} color={Colors.textTertiary} />
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle-outline" size={20} color={Colors.primary} />
+          <Text style={styles.infoText}>This amount will be added directly to your StayEase wallet balance.</Text>
         </View>
 
         <Pressable
           style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]}
           onPress={handleTopUp}
-          disabled={loading}
+          disabled={loading || amount <= 0}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.confirmBtnText}>Top Up E-Wallet</Text>
+            <Text style={styles.confirmBtnText}>Add ₹{amount.toLocaleString("en-IN")} to Wallet</Text>
           )}
         </Pressable>
       </ScrollView>
@@ -137,8 +131,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     alignItems: "center",
   },
+  amountIconWrap: { marginBottom: 12 },
   amountLabel: { fontSize: 14, color: "rgba(255,255,255,0.9)", marginBottom: 4 },
   amountValue: { fontSize: 28, fontWeight: "800" as const, color: "#fff" },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.primary + "10",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+  },
+  infoText: { fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
   sectionLabel: { fontSize: 14, fontWeight: "700" as const, color: Colors.text, marginBottom: 12 },
   methodCard: {
     flexDirection: "row",

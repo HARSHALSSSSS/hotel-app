@@ -49,6 +49,7 @@ function BookingCardUpcoming({
   onCancel: (b: BookingItem) => void;
   onReceipt: (b: BookingItem) => void;
 }) {
+  const { getHotelById } = useApp();
   const pricePerNight = (booking.nights && booking.nights > 0)
     ? booking.totalPrice / booking.nights
     : booking.totalPrice;
@@ -59,7 +60,7 @@ function BookingCardUpcoming({
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <ExpoImage
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
+          source={{ uri: resolveBookingImage(booking, getHotelById) }}
           style={styles.cardImage}
           contentFit="cover"
           transition={150}
@@ -120,6 +121,7 @@ function BookingCardCompleted({
   onReBook: (b: BookingItem) => void;
   onAddReview: (b: BookingItem) => void;
 }) {
+  const { getHotelById } = useApp();
   const pricePerNight = (booking.nights && booking.nights > 0)
     ? booking.totalPrice / booking.nights
     : booking.totalPrice;
@@ -130,7 +132,7 @@ function BookingCardCompleted({
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <ExpoImage
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
+          source={{ uri: resolveBookingImage(booking, getHotelById) }}
           style={styles.cardImage}
           contentFit="cover"
           transition={150}
@@ -177,6 +179,7 @@ function BookingCardCancelled({
   booking: BookingItem;
   onReBook: (b: BookingItem) => void;
 }) {
+  const { getHotelById } = useApp();
   const pricePerNight = (booking.nights && booking.nights > 0)
     ? booking.totalPrice / booking.nights
     : booking.totalPrice;
@@ -187,7 +190,7 @@ function BookingCardCancelled({
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <ExpoImage
-          source={{ uri: getOptimizedImageUrl(booking.hotelImage, "card") || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80" }}
+          source={{ uri: resolveBookingImage(booking, getHotelById) }}
           style={styles.cardImage}
           contentFit="cover"
           transition={150}
@@ -222,10 +225,17 @@ function BookingCardCancelled({
   );
 }
 
+function resolveBookingImage(booking: BookingItem, getHotelById: (id: string) => any): string {
+  const hotelData = booking.hotelId ? getHotelById(booking.hotelId) : null;
+  return getOptimizedImageUrl(hotelData?.images?.[0], "card")
+    || getOptimizedImageUrl(booking.hotelImage, "card")
+    || "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80";
+}
+
 export default function MyBookingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const { bookings, refreshBookings } = useApp();
+  const { bookings, refreshBookings, getHotelById } = useApp();
   const initialTab = (params.tab === "cancelled" || params.tab === "completed") ? params.tab : "upcoming";
   const [tab, setTab] = useState<TabKey>(initialTab as TabKey);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
