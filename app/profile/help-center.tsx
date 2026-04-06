@@ -203,12 +203,7 @@ export default function HelpCenterScreen() {
 
       {tab === "faq" && (
         <>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.chipScroll}
-            contentContainerStyle={styles.chipScrollContent}
-          >
+          <View style={styles.chipRow}>
             {FAQ_CATEGORIES.map((c) => (
               <Pressable
                 key={c}
@@ -221,7 +216,7 @@ export default function HelpCenterScreen() {
                 <Text style={[styles.chipText, faqCategory === c && styles.chipTextActive]}>{c}</Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
           <FlatList
             data={filteredFaq}
             keyExtractor={(item) => item.id}
@@ -320,16 +315,23 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: Colors.primary,
   },
-  chipScroll: { marginTop: 16 },
-  chipScrollContent: { paddingHorizontal: 20, paddingBottom: 12, gap: 10, flexDirection: "row" as const },
-  chip: {
+  chipRow: {
+    flexDirection: "row",
     paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  chip: {
+    flex: 1,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 24,
     backgroundColor: "#F0F0F0",
+    alignItems: "center",
+    justifyContent: "center",
   },
   chipActive: { backgroundColor: Colors.primary },
-  chipText: { fontSize: 14, fontWeight: "500" as const, color: Colors.text },
+  chipText: { fontSize: 13, fontWeight: "600" as const, color: Colors.text },
   chipTextActive: { color: "#fff" },
   faqList: { padding: 20, paddingTop: 16 },
   faqCard: {
